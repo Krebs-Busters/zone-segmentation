@@ -1,0 +1,1 @@
+To prepare the data for training run `python download.py`.
