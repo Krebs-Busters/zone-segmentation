@@ -4,6 +4,7 @@ coverage_html_report/
 htmlcov
 .noseids
 data/full/
+data/picai_labels
 
 
 # Byte-compiled / optimized / DLL files
