@@ -2,6 +2,7 @@ import medpy.io
 import pathlib
 import glob
 from multiprocessing import Pool
+import numpy as np
 
 
 class DataLoader(object):
@@ -63,14 +64,29 @@ class DataLoader(object):
 
 
     def get_batch(self, batch_size: int):
-        images = []
-        labels = []
+        stacked_batches = {}
         patient_keys = [self.get_key() for _ in range(batch_size)]
 
         with Pool(self.worker_no) as p:
-            batch_data_dicts = p.map(self.get_record, patient_keys)
+            batch_data_dict_list = p.map(self.get_record, patient_keys)
 
-        for batch_dict in batch_data_dicts:
-            pass
-
-        return None
+        # for the moment most of the time is spent concatenating.
+        for batch_element in batch_data_dict_list:
+            for key1, nested_batch_element in batch_element.items():
+                if type(nested_batch_element) is dict: 
+                    if not key1 in stacked_batches:
+                        stacked_batches[key1] = {}
+                    for key2, batch_image in nested_batch_element.items():
+                        if key2 in stacked_batches[key1]:
+                            exp_image = np.expand_dims(batch_image[0], axis=0)
+                            stacked_batches[key1][key2] = np.concatenate([stacked_batches[key1][key2], exp_image])
+                        else:
+                            stacked_batches[key1][key2] = np.expand_dims(batch_image[0], 0)
+                else:
+                    if not key1 in stacked_batches:
+                        stacked_batches[key1] = np.expand_dims(nested_batch_element[0], 0)
+                    else:
+                        expand_batch = np.expand_dims(nested_batch_element[0], axis=0)
+                        stacked_batches[key1] = np.concatenate(
+                            [stacked_batches[key1], expand_batch], 0)
+        return stacked_batches
