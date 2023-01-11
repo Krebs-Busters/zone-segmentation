@@ -3,6 +3,7 @@ import pathlib
 import glob
 from multiprocessing import Pool
 import numpy as np
+import jax.tree_util
 
 
 class DataLoader(object):
@@ -54,39 +55,40 @@ class DataLoader(object):
         def load_dict(path_dict: dict) -> dict:
             image_dict = {}
             for key, object in path_dict.items():
-                    image_dict[key] = medpy.io.load(object)
+                image_dict[key] = medpy.io.load(object)[0]
             return image_dict
 
         images = load_dict(images)
-        annos = medpy.io.load(annos)
+        annos = medpy.io.load(annos)[0]
 
         return {"images": images, "annotation": annos}
 
 
     def get_batch(self, batch_size: int):
-        stacked_batches = {}
         patient_keys = [self.get_key() for _ in range(batch_size)]
+        batch_dict_list = list(map(self.get_record, patient_keys))
 
-        with Pool(self.worker_no) as p:
-            batch_data_dict_list = p.map(self.get_record, patient_keys)
+        def tree_stack(trees):
+            """Takes a list of trees and stacks every corresponding leaf.
+            For example, given two trees ((a, b), c) and ((a', b'), c'), returns
+            ((stack(a, a'), stack(b, b')), stack(c, c')).
+            Useful for turning a list of objects into something you can feed to a
+            vmapped function.
 
-        # for the moment most of the time is spent concatenating.
-        for batch_element in batch_data_dict_list:
-            for key1, nested_batch_element in batch_element.items():
-                if type(nested_batch_element) is dict: 
-                    if not key1 in stacked_batches:
-                        stacked_batches[key1] = {}
-                    for key2, batch_image in nested_batch_element.items():
-                        if key2 in stacked_batches[key1]:
-                            exp_image = np.expand_dims(batch_image[0], axis=0)
-                            stacked_batches[key1][key2] = np.concatenate([stacked_batches[key1][key2], exp_image])
-                        else:
-                            stacked_batches[key1][key2] = np.expand_dims(batch_image[0], 0)
-                else:
-                    if not key1 in stacked_batches:
-                        stacked_batches[key1] = np.expand_dims(nested_batch_element[0], 0)
-                    else:
-                        expand_batch = np.expand_dims(nested_batch_element[0], axis=0)
-                        stacked_batches[key1] = np.concatenate(
-                            [stacked_batches[key1], expand_batch], 0)
-        return stacked_batches
+            Cudos to:
+            https://gist.github.com/willwhitney/dd89cac6a5b771ccff18b06b33372c75
+            """
+            leaves_list = []
+            treedef_list = []
+            for tree in trees:
+                leaves, treedef = jax.tree_util.tree_flatten(tree)
+                leaves_list.append(leaves)
+                treedef_list.append(treedef)
+
+            grouped_leaves = zip(*leaves_list)
+            result_leaves = [np.stack(l) for l in grouped_leaves]
+            return treedef_list[0].unflatten(result_leaves)
+
+        stacked = tree_stack(batch_dict_list)
+
+        return stacked

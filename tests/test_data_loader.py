@@ -4,9 +4,9 @@ import numpy as np
 from src.medseg.data_loader import DataLoader
 
 
-@pytest.mark.parametrize("batch_size", [5, 15])
+@pytest.mark.parametrize("batch_size", [8, 16])
 def test_loader(batch_size: int):
-    loader = DataLoader(worker_no=10)
+    loader = DataLoader(worker_no=12)
     # rec = loader.get_record()
     batch = loader.get_batch(batch_size)
     assert batch['images']['adc'].shape == (batch_size, 120, 128, 19)
@@ -17,13 +17,12 @@ def test_loader(batch_size: int):
 
     assert batch['annotation'].shape == (batch_size, 640, 640, 19)
 
-
     # for i in range(10):
     #     print(i)
-    #     batch = loader.get_batch(50)
-    #     if np.max(batch['annotation']) > 0.:
+    #     batch = loader.get_batch(10)
+    #     if np.max(batch['annotation']) > 0.1:
     #         print('hit!')
 
 
 if __name__ == '__main__':
-    test_loader(50)
+    test_loader(64)
