@@ -1,14 +1,21 @@
 import medpy.io
 import pathlib
-import glob
-from multiprocessing import Pool
 import numpy as np
 import jax.tree_util
 
+from multiprocessing.dummy import Pool
 
-class DataLoader(object):
+class PicaiLoader(object):
 
-    def __init__(self, data_path: str='./data', fold: int=0, worker_no: int=5):
+    def __init__(self, data_path: str='./data', fold: int=0, workers=None):
+        """Generate a picai-data loader.
+
+        Args:
+            data_path (str, optional): Where to find the Picai data set. Defaults to './data'.
+            fold (int, optional): The desired picai fold. Defaults to 0.
+            workers (_type_, optional): The number of worker-threads for the data loader.
+                Defaults to None, which uses os.cpu_count() .
+        """        
         self.data_path = pathlib.Path(data_path)
         self.fold = fold
         self.fold_files = list(
@@ -21,8 +28,7 @@ class DataLoader(object):
 
         self.key_pointer = 0
         self.patient_keys = list(self.image_dict.keys())
-        self.worker_no = worker_no
-
+        self._workers = workers
 
     def create_annotation_dict(self):
         self.annotation_dict = {}
@@ -66,29 +72,15 @@ class DataLoader(object):
 
     def get_batch(self, batch_size: int):
         patient_keys = [self.get_key() for _ in range(batch_size)]
-        batch_dict_list = list(map(self.get_record, patient_keys))
-
-        def tree_stack(trees):
-            """Takes a list of trees and stacks every corresponding leaf.
-            For example, given two trees ((a, b), c) and ((a', b'), c'), returns
-            ((stack(a, a'), stack(b, b')), stack(c, c')).
-            Useful for turning a list of objects into something you can feed to a
-            vmapped function.
-
-            Cudos to:
-            https://gist.github.com/willwhitney/dd89cac6a5b771ccff18b06b33372c75
-            """
+        with Pool(self._workers) as p:
+            batch_dict_list = p.map(self.get_record, patient_keys)
             leaves_list = []
             treedef_list = []
-            for tree in trees:
+            for tree in batch_dict_list:
                 leaves, treedef = jax.tree_util.tree_flatten(tree)
                 leaves_list.append(leaves)
                 treedef_list.append(treedef)
-
             grouped_leaves = zip(*leaves_list)
-            result_leaves = [np.stack(l) for l in grouped_leaves]
-            return treedef_list[0].unflatten(result_leaves)
-
-        stacked = tree_stack(batch_dict_list)
-
+            result_leaves = p.map(np.stack, grouped_leaves)
+            stacked = treedef_list[0].unflatten(result_leaves)
         return stacked

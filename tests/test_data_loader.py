@@ -1,12 +1,12 @@
 import pytest
 import numpy as np
 
-from src.medseg.data_loader import DataLoader
+from src.medseg.data_loader import PicaiLoader
 
 
 @pytest.mark.parametrize("batch_size", [8, 16])
 def test_loader(batch_size: int):
-    loader = DataLoader(worker_no=12)
+    loader = PicaiLoader()
     # rec = loader.get_record()
     batch = loader.get_batch(batch_size)
     assert batch['images']['adc'].shape == (batch_size, 120, 128, 19)
@@ -25,4 +25,5 @@ def test_loader(batch_size: int):
 
 
 if __name__ == '__main__':
-    test_loader(64)
+    # test_loader(128)
+    test_loader(12)
