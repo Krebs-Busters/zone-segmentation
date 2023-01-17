@@ -35,6 +35,7 @@ class PicaiLoader(object):
         print(f"Found {len(self.patient_keys)} matching keys.")
         self._workers = workers
         self.input_shape = input_shape
+        self.reset = False
 
     def create_annotation_dict(self):
         self.annotation_dict = {}
@@ -57,6 +58,7 @@ class PicaiLoader(object):
     def get_key(self):
         if self.key_pointer > len(self.patient_keys):
                self.key_pointer == 0
+               self.reset == True
         current_key = self.patient_keys[self.key_pointer]
         self.key_pointer += 1 
         return current_key
@@ -98,3 +100,8 @@ class PicaiLoader(object):
             result_leaves = p.map(np.stack, grouped_leaves)
             stacked = treedef_list[0].unflatten(result_leaves)
         return stacked
+
+    def get_epoch(self, batch_size):
+        self.reset = False
+        while self.reset is False:
+            yield self.get_batch(batch_size)
