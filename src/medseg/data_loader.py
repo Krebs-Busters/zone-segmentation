@@ -1,5 +1,5 @@
-import medpy.io
-# import medpy.filter.image
+import medpy.io 
+import SimpleITK as sitk
 import skimage
 import pathlib
 import numpy as np
@@ -7,6 +7,9 @@ import jax.tree_util
 
 from typing import Tuple
 from multiprocessing.dummy import Pool
+
+from util import compute_roi
+
 
 class PicaiLoader(object):
 
@@ -64,18 +67,39 @@ class PicaiLoader(object):
         return current_key
 
     def get_record(self, patient_key):
-        """ Load a patient's image data and annotations. """
+        """ Load a patient's image data and annotations.
+        Records should have the following keys:
+
+        t2w: axial t2w,
+        sag: saggital t2w,
+        cor: coronal t2w,
+        hdv: axial dwi
+        adc: axial adc 
+        """
         images = self.image_dict[patient_key]
         annos = self.annotation_dict[patient_key]
 
         def load_dict(path_dict: dict) -> dict:
             image_dict = {}
-            for key, object in path_dict.items():
-                image, header = medpy.io.load(object)
-                # image, _ = medpy.filter.image.resample(image, header, (0.5, 0.5, 3.))
-                # TODO: ROI extraction!!
-                image = skimage.transform.resize(image, self.input_shape)
-                image_dict[key] = image
+            
+            def load_mha(path) -> np.ndarray:
+                image = sitk.ReadImage(path)
+                return image 
+
+
+            # roi
+            t2w_img = load_mha(path_dict['t2w'])
+            sag_img = load_mha(path_dict['sag'])
+            cor_img = load_mha(path_dict['cor'])
+
+            region_tra = compute_roi((t2w_img, cor_img, sag_img))
+            region_tra = sitk.GetArrayFromImage(region_tra[0])
+
+            pass
+
+            # TODO: ROI extraction!!
+            # image = skimage.transform.resize(image, self.input_shape)
+
             return image_dict
 
         images = load_dict(images)

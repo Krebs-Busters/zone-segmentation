@@ -89,7 +89,7 @@ class UNet3D(nn.Module):
 
 def train():
     
-    data_set = PicaiLoader()
+    data_set = PicaiLoader(workers=4)
     epochs = 20
     batch_size = 4
     opt = optax.adam(learning_rate=0.001)
