@@ -93,7 +93,7 @@ class PicaiLoader(object):
             cor_img = load_mha(path_dict['cor'])
 
             region_tra = compute_roi((t2w_img, cor_img, sag_img))
-            region_tra = sitk.GetArrayFromImage(region_tra[0])
+            # region_tra = sitk.GetArrayFromImage(region_tra[0])
 
             pass
 

@@ -1,76 +1,150 @@
-import medpy
-import medpy.io.header as header
 import SimpleITK as sitk
 
 import numpy as np
 import zone_segmentation_utils as utils
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 
 
-# def compute_roi(images, heads):
-#     """
-#     
-#     Extension of https://loli.github.io/medpy/_modules/medpy/filter/utilities.html#intersection .
-#     Added multi-image and transformation matrix support.
-# 
-#     Args:
-#         images (_type_): _description_
-#         heads (_type_): _description_
-#     """
-# 
-#     # oss = [np.asarray(head.get_offset()) for head in heads]
-#     oss = [np.asarray(head.get_sitkimage().GetOrigin()) for head in heads]
-#     # pss = [np.asarray(head.get_voxel_spacing()) for head in heads]
-#     pss = [np.asarray(head.get_sitkimage().GetSpacing()) for head in heads]
-#     # tms = [np.asarray(head.get_direction()) for head in heads]
-#     tms = [np.asarray(head.get_sitkimage().GetDirection()).reshape(3,3) for head in heads]
-#     inv_tm = [np.linalg.pinv(tm) for tm in tms]
-#     bbs = []
-#     for pos, image in enumerate(images):
-#         low = oss[pos]
-#         up = np.asarray(image.shape) * pss[pos] + oss[pos]
-#         bbs.append((low, up))
-#     bbs = np.stack(bbs)
-#     
-#     # compute image bounding boxes in real-world coordinates
-#     # bb0, os0, ps0 = _get_bb(images[0], heads[0])
-#     # bb1, os1, ps1 = _get_bb(images[1], heads[1])
-#     # bb2, os2, ps2 = _get_bb(images[2], heads[2])
-#     # bbs, oss, pss =  _get_bb(images, heads)
-# 
-#     # compute intersection
-#     lower_end = np.amax(np.stack([bb[0] for bb in bbs], axis=0), axis=0)
-#     upper_end = np.amin(np.stack([bb[1] for bb in bbs], axis=0), axis=0)
-#     ib_ind = np.stack((lower_end, upper_end))
-# 
-#     # transfer intersection to respective image coordinates image
-#     def _coord_transfer(ib, os, ps):
-#         return [((ib[0] - os) / np.asarray(ps)).astype(np.int),
-#                 ((ib[1] - os) / np.asarray(ps)).astype(np.int)]
-#     
-#     ibs = np.stack([_coord_transfer(ib_ind, os, ps) for (os, ps) in zip(oss, pss)])
-# 
-#     # ensure that sub-volumes are of same size (might be affected by rounding errors); only reduction allowed
-#     # sizes = np.stack(list((ib_pair[1] - ib_pair[0]) for ib_pair in ibs))
-#     sizes = ibs[:, 1, :] - ibs[:, 0, :]
-#     min_sizes = np.amin(sizes, 0)
-#     diffs = sizes - min_sizes
-#     
-#     # subtract differences from the top.
-#     ibs[:, 1, :] -= diffs
-# 
-#     # compute new image offsets (in real-world coordinates); averaged to account for rounding errors due to world-to-voxel mapping
-#     nos = ibs[:, 0, :] * pss + oss
-#     nos = np.mean(nos, axis=0)
-# 
-#     # intersections = [i[ibs[pos,0]:ibs[pos,1]] for pos,i in enumerate(images)]
-#     box_indices = []
-#     for ib in ibs:
-#         box_indices.append((slice(low, up) for low, up in zip(*ib)))
-#     intersections = [i[box_inds] for box_inds, i in zip(box_indices, images)]
-#     return intersections, nos
+def plot_boxes(images):
+    assert len(images) == 3
+    names = ['tra', 'cor', 'sag']
+    origins = [np.asarray(img.GetOrigin()) for img in images]
+    sizes = [np.asarray(img.GetSpacing())*np.asarray(img.GetSize()) for img in images]
+    orientation = [np.asarray(img.GetDirection()).reshape(3, 3) for img in images]
+
+    rects = []
+    for pos, size in enumerate(sizes):
+        bc = np.array([0, 0, 0])
+        br = np.array([size[0], 0, 0])
+        bl = np.array([0, size[0], 0])
+        bb = np.array([size[0], size[1], 0])
+        tc = np.array([0, 0, size[2]])
+        tr = np.array([size[0], 0, size[2]])
+        tl = np.array([0, size[1], size[2]])
+        tb = size
+        lines = [np.linspace(bc, br, 100),
+                 np.linspace(br, bb, 100),
+                 np.linspace(bb, bl, 100),
+                 np.linspace(bl, bc, 100),
+                 np.linspace(bb, tb, 100),
+                 np.linspace(bl, tl, 100),
+                 np.linspace(bc, tc, 100),
+                 np.linspace(br, tr, 100),
+                 np.linspace(tc, tr, 100),
+                 np.linspace(tr, tb, 100),
+                 np.linspace(tb, tl, 100),
+                 np.linspace(tl, tc, 100)]
+        rotated = [(orientation[pos]@line.T).T for line in lines]
+        shifted = [origins[pos]+line for line in rotated]
+        rects.append(shifted)
+
+    # plot rects
+    color_keys = list(mcolors.TABLEAU_COLORS.keys())
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    ax.plot(0., 0., 0., 's', color='black')
+    for pos, rect in enumerate(rects):
+        color = color_keys[pos%len(color_keys)]
+        for linepos, line in enumerate(rect):
+            if linepos == 0:
+                ax.plot(line[0, 0], line[0, 1], line[0 , 2] , 's', color=color, label=names[pos])
+            ax.plot(line[:, 0], line[:, 1], line[:, 2] , '-.', color=color)
+    plt.legend()
+    plt.show(block=False)
+
+    for pos, rect in enumerate(rects):
+        color = color_keys[pos%len(color_keys)]
+        for linepos, line in enumerate(rect):
+            if linepos == 0:
+                plt.plot(line[0, 0], line[0, 1], 's', color=color, label=names[pos])
+            plt.plot(line[:, 0], line[:, 1], '-.', color=color)
+    plt.legend(loc='upper right')
+    plt.title('X,Y-View')
+    plt.show(block=False)
+
+    for pos, rect in enumerate(rects):
+        color = color_keys[pos%len(color_keys)]
+        for linepos, line in enumerate(rect):
+            if linepos == 0:
+                plt.plot(line[0, 1], line[0, 2], 's', color=color, label=names[pos])
+            plt.plot(line[:, 1], line[:, 2], '-.', color=color)
+    plt.legend(loc='upper right')
+    plt.title('Y-Z-View')
+    plt.show()
+
+
+
+    # find the intersection.
+
+
+    pass
+
+
 
 
 def compute_roi(images):
+    """
+    
+    Extension of https://loli.github.io/medpy/_modules/medpy/filter/utilities.html#intersection .
+    Added multi-image and transformation matrix support.
+
+    Args:
+        images (_type_): _description_
+    """
+    
+    plot_boxes(images)
+
+
+    ## oss = [np.asarray(img.get_offset()) for img in images]
+    #oss = [np.asarray(img.GetOrigin()) for img in images]
+    ## pss = [np.asarray(img.get_voxel_spacing()) for img in images]
+    #pss = [np.asarray(img.GetSpacing()) for img in images]
+    ## tms = [np.asarray(img.get_direction()) for img in images]
+    #tms = [np.asarray(img.GetDirection()).reshape(3,3) for img in images]
+    #inv_tm = [np.linalg.pinv(tm) for tm in tms]
+    #bbs = []
+    #for pos, image in enumerate(images):
+    #    low = oss[pos]
+    #    up = np.asarray(image.shape) * pss[pos] + oss[pos]
+    #    bbs.append((low, up))
+    #bbs = np.stack(bbs)
+    #
+    ## compute image bounding boxes in real-world coordinates
+    ## bb0, os0, ps0 = _get_bb(images[0], heads[0])
+    ## bb1, os1, ps1 = _get_bb(images[1], heads[1])
+    ## bb2, os2, ps2 = _get_bb(images[2], heads[2])
+    ## bbs, oss, pss =  _get_bb(images, heads)
+    ## compute intersection
+    #lower_end = np.amax(np.stack([bb[0] for bb in bbs], axis=0), axis=0)
+    #upper_end = np.amin(np.stack([bb[1] for bb in bbs], axis=0), axis=0)
+    #ib_ind = np.stack((lower_end, upper_end))
+    ## transfer intersection to respective image coordinates image
+    #def _coord_transfer(ib, os, ps):
+    #    return [((ib[0] - os) / np.asarray(ps)).astype(np.int),
+    #            ((ib[1] - os) / np.asarray(ps)).astype(np.int)]
+    #
+    #ibs = np.stack([_coord_transfer(ib_ind, os, ps) for (os, ps) in zip(oss, pss)])
+    ## ensure that sub-volumes are of same size (might be affected by rounding errors); only reduction allowed
+    ## sizes = np.stack(list((ib_pair[1] - ib_pair[0]) for ib_pair in ibs))
+    #sizes = ibs[:, 1, :] - ibs[:, 0, :]
+    #min_sizes = np.amin(sizes, 0)
+    #diffs = sizes - min_sizes
+    #
+    ## subtract differences from the top.
+    #ibs[:, 1, :] -= diffs
+    ## compute new image offsets (in real-world coordinates); averaged to account for rounding errors due to world-to-voxel mapping
+    #nos = ibs[:, 0, :] * pss + oss
+    #nos = np.mean(nos, axis=0)
+    ## intersections = [i[ibs[pos,0]:ibs[pos,1]] for pos,i in enumerate(images)]
+    #box_indices = []
+    #for ib in ibs:
+    #    box_indices.append((slice(low, up) for low, up in zip(*ib)))
+    #intersections = [i[box_inds] for box_inds, i in zip(box_indices, images)]
+    return None
+
+
+def compute_roi2(images):
 
     img_tra = images[0]
     img_cor = images[1]
