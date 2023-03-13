@@ -8,6 +8,7 @@ def test_loading_human_expert_annotations():
     assert len(files) == 1295
 
     zero_max_counter = 0
+    interesting_list = []
     shape_list = []
     channel_list = []
     for file in files:
@@ -15,6 +16,8 @@ def test_loading_human_expert_annotations():
         max = (np.max(niigz[0]))
         if max == 0:
             zero_max_counter += 1
+        else:
+            interesting_list.append(file)
         
         shape = niigz[0].shape
         # images are square!

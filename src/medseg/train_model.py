@@ -1,5 +1,5 @@
 from typing import Optional, Tuple
-from data_loader import PicaiLoader
+from .data_loader import PicaiLoader
 import numpy as np
 import jax.numpy as jnp
 import jax
@@ -12,8 +12,8 @@ from tqdm import tqdm
 
 
 def normalize(
-    data: np.ndarray, mean: Optional[float] = None, std: Optional[float] = None
-) -> Tuple[np.ndarray, float, float]:
+    data: np.ndarray, mean: float = None, std: float = None
+) -> np.ndarray:
     """Normalize the input array.
     After normalization the input
     distribution should be approximately standard normal.
@@ -26,11 +26,7 @@ def normalize(
     Returns:
         np.array, float, float: Normalized data, mean and std.
     """
-    if mean is None:
-        mean = np.mean(data)
-    if std is None:
-        std = np.std(data)
-    return (data - mean) / std, mean, std
+    return (data - mean) / std
 
 
 
@@ -43,7 +39,7 @@ class UNet3D(nn.Module):
     def __call__(self, x: jnp.ndarray):
         # x: i.e. (8, 256, 256, 21)
         x1 = jnp.expand_dims(x ,-1).transpose([0, 3, 1, 2, 4])
-        init_feat = 8 # 16
+        init_feat = 4 #8 # 16
         # TODO: switch to valid!
         x1 = nn.relu(nn.Conv(features=init_feat, kernel_size=(3,3,3), padding="SAME")(x1))
         x1 = nn.relu(nn.Conv(features=init_feat, kernel_size=(3,3,3), padding="SAME")(x1))
@@ -89,18 +85,19 @@ class UNet3D(nn.Module):
 
 def train():
     
-    data_set = PicaiLoader(workers=4)
+    input_shape = [256, 256, 21]
+    data_set = PicaiLoader(workers=4, input_shape=input_shape)
     epochs = 20
-    batch_size = 4
+    batch_size = 12
     opt = optax.adam(learning_rate=0.001)
 
     model = UNet3D()
 
     key = jax.random.PRNGKey(42)
-    net_state = model.init(key, jnp.ones([batch_size, 256, 256, 21]))
+    net_state = model.init(key, jnp.ones([batch_size] + input_shape))
     opt_state = opt.init(net_state)
 
-    @jax.jit
+    # @jax.jit
     def forward_step(
         variables: FrozenDict, img_batch: jnp.ndarray, label_batch: jnp.ndarray,
     ):
@@ -111,19 +108,30 @@ def train():
                 logits=out, labels=label_batch
             )
         )
+        if jnp.max(label_batch) > 0.1:
+            pass
+
         return ce_loss
 
     loss_grad_fn = jax.value_and_grad(forward_step)
-    for data_batch in data_set.get_epoch(batch_size):
-        input_x = data_batch['images']['t2w']
-        labels_y = data_batch['annotation']
+    iterations_counter = 0
+    epoch_counter = 0
 
-        cel, grads = loss_grad_fn(net_state, input_x, labels_y)
-        updates, opt_state = opt.update(grads, opt_state, net_state)
-        net_state = optax.apply_updates(net_state, updates)
-        # bar.set_description("Loss: {:2.3f}".format(cel))
-        print(cel)
+    for e in range(epochs):
+        for data_batch in data_set.get_epoch(batch_size):
+            input_x = data_batch['images']
+            labels_y = data_batch['annotation']
 
+            input_x = normalize(input_x,
+                                mean=np.array([3.4925714]),
+                                std=np.array([31.330494]))
+            cel, grads = loss_grad_fn(net_state, input_x, labels_y)
+            updates, opt_state = opt.update(grads, opt_state, net_state)
+            net_state = optax.apply_updates(net_state, updates)
+            iterations_counter += 1
+            print(f"epoch: {e}, iteration: {iterations_counter}, loss: {cel}")
+
+    pass
 
 if __name__ == '__main__':
     train()

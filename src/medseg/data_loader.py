@@ -1,4 +1,3 @@
-import medpy.io 
 import SimpleITK as sitk
 import skimage
 import pathlib
@@ -8,7 +7,7 @@ import jax.tree_util
 from typing import Tuple
 from multiprocessing.dummy import Pool
 
-from util import compute_roi
+from .util import compute_roi, compute_roi2
 
 
 class PicaiLoader(object):
@@ -59,12 +58,13 @@ class PicaiLoader(object):
         
 
     def get_key(self):
-        if self.key_pointer > len(self.patient_keys):
+        if self.key_pointer >= len(self.patient_keys) - 1:
                self.key_pointer == 0
                self.reset == True
         current_key = self.patient_keys[self.key_pointer]
         self.key_pointer += 1 
         return current_key
+
 
     def get_record(self, patient_key):
         """ Load a patient's image data and annotations.
@@ -79,41 +79,31 @@ class PicaiLoader(object):
         images = self.image_dict[patient_key]
         annos = self.annotation_dict[patient_key]
 
-        def load_dict(path_dict: dict) -> dict:
-            image_dict = {}
-            
-            def load_mha(path) -> np.ndarray:
-                image = sitk.ReadImage(path)
-                return image 
+        # roi
+        t2w_img = sitk.ReadImage(images['t2w'])
+        sag_img = sitk.ReadImage(images['sag'])
+        cor_img = sitk.ReadImage(images['cor'])
+        regions, slices = compute_roi((t2w_img, cor_img, sag_img))
+        # anneke = compute_roi2((t2w_img, cor_img, sag_img))
+        # anneke = sitk.GetArrayFromImage(anneke[0])
 
+        annos = sitk.ReadImage(annos)
+        annos = sitk.GetArrayFromImage(annos).transpose((1, 2, 0))
+        annos = annos[tuple(slices[0])]
 
-            # roi
-            t2w_img = load_mha(path_dict['t2w'])
-            sag_img = load_mha(path_dict['sag'])
-            cor_img = load_mha(path_dict['cor'])
-
-            region_tra = compute_roi((t2w_img, cor_img, sag_img))
-            # region_tra = sitk.GetArrayFromImage(region_tra[0])
-
-            pass
-
-            # TODO: ROI extraction!!
-            # image = skimage.transform.resize(image, self.input_shape)
-
-            return image_dict
-
-        images = load_dict(images)
-        annos, annohead = medpy.io.load(annos)
-        # annos, _ = medpy.filter.image.resample(annos, annohead, (0.5, 0.5, 3.))
+        # resample
+        roi = skimage.transform.resize(regions[0], self.input_shape)
         annos = skimage.transform.resize(annos, self.input_shape)
-        return {"images": images, "annotation": annos}
+
+        return {"images": roi, "annotation": annos}
 
 
     def get_batch(self, batch_size: int):
         patient_keys = [self.get_key() for _ in range(batch_size)]
         with Pool(self._workers) as p:
             # todo move from map to p.map after debugging.
-            batch_dict_list = list(map(self.get_record, patient_keys))
+            # batch_dict_list = list(map(self.get_record, patient_keys))
+            batch_dict_list = p.map(self.get_record, patient_keys)
             leaves_list = []
             treedef_list = []
             for tree in batch_dict_list:
