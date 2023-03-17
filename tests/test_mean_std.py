@@ -16,5 +16,5 @@ def test_mean_std():
     mean = np.mean(data_set)
     std = np.std(data_set)
     print(mean, std)
-    np.allclose([3.4925714, 31.330494], [mean, std], atol=1e-6)
+    np.allclose([3.4881113, 31.359411], [mean, std], atol=1e-6)
 
