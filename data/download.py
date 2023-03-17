@@ -6,7 +6,7 @@ import pdb
 
 data_location = 'https://zenodo.org/record/6624726'
 
-files = ["picai_public_images_fold{}.zip".format(i) for i in range(0,4)]
+files = ["picai_public_images_fold{}.zip".format(i) for i in range(0,5)]
 picai_url = [(data_location + '/files/' + file, 'full/' + file) for file in files]
 
 
