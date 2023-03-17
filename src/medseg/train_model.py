@@ -9,10 +9,12 @@ import optax
 from flax import linen as nn
 from flax.core.frozen_dict import FrozenDict
 from tqdm import tqdm
+import pickle
 
 
+@jax.jit
 def normalize(
-    data: np.ndarray, mean: float = None, std: float = None
+    data: jnp.ndarray, mean: jnp.ndarray = None, std: jnp.ndarray = None
 ) -> np.ndarray:
     """Normalize the input array.
     After normalization the input
@@ -37,7 +39,7 @@ class UNet3D(nn.Module):
 
     @nn.compact
     def __call__(self, x: jnp.ndarray):
-        # x: i.e. (8, 256, 256, 21)
+        # x: i.e. (8, 256, 256, 21) transform to NDHWC
         x1 = jnp.expand_dims(x ,-1).transpose([0, 3, 1, 2, 4])
         init_feat = 4 #8 # 16
         # TODO: switch to valid!
@@ -78,26 +80,29 @@ class UNet3D(nn.Module):
         x9 = nn.ConvTranspose(features=init_feat, kernel_size=(3,3,3), strides=(1,2,2))(x8)
         x9 = jnp.concatenate([x1, x9], axis=-1)
         x9 = nn.relu(nn.Conv(features=init_feat, kernel_size=(3,3,3), padding="SAME")(x9))
-        x9 = nn.relu(nn.Conv(features=1, kernel_size=(3,3,3), padding="SAME")(x9))
-        return x9.squeeze(-1).transpose(0, 2, 3, 1)
+        x9 = nn.relu(nn.Conv(features=2, kernel_size=(3,3,3), padding="SAME")(x9))
+        return x9.transpose(0, 2, 3, 1, 4)
 
 
 
 def train():
-    
+    val_keys = ['10257_1000261', '10730_1000746', '10525_1000535']
+
     input_shape = [256, 256, 21]
-    data_set = PicaiLoader(workers=4, input_shape=input_shape)
-    epochs = 20
-    batch_size = 12
+    data_set = PicaiLoader(input_shape=input_shape, val_keys=val_keys)
+    epochs = 30
+    batch_size = 6
     opt = optax.adam(learning_rate=0.001)
+    load_new = True
 
     model = UNet3D()
 
+    np.random.seed(42)
     key = jax.random.PRNGKey(42)
     net_state = model.init(key, jnp.ones([batch_size] + input_shape))
     opt_state = opt.init(net_state)
 
-    # @jax.jit
+    @jax.jit
     def forward_step(
         variables: FrozenDict, img_batch: jnp.ndarray, label_batch: jnp.ndarray,
     ):
@@ -105,33 +110,61 @@ def train():
         out = model.apply(variables, img_batch)
         ce_loss = jnp.mean(
             optax.softmax_cross_entropy(
-                logits=out, labels=label_batch
+                logits=out, labels=nn.one_hot(label_batch, 2)
             )
         )
-        if jnp.max(label_batch) > 0.1:
-            pass
-
         return ce_loss
 
     loss_grad_fn = jax.value_and_grad(forward_step)
     iterations_counter = 0
-    epoch_counter = 0
+
+    if load_new:
+        epoch_batches = list(data_set.get_epoch(batch_size))
+        with open('./data/pickled/batch_dump.pkl', 'wb') as file:
+            pickle.dump(epoch_batches, file)
+    else:
+        with open('./data/pickled/batch_dump.pkl', 'rb') as file:
+            epoch_batches = pickle.load(file)
+
+    val_data = data_set.get_val()
+    mean = jnp.array([3.4925714])
+    std = jnp.array([31.330494])
+    val_loss_list = []
+    train_loss_list = []
 
     for e in range(epochs):
-        for data_batch in data_set.get_epoch(batch_size):
-            input_x = data_batch['images']
-            labels_y = data_batch['annotation']
-
+        np.random.shuffle(epoch_batches)
+        bar = tqdm(epoch_batches, desc="Training UNET")
+        for data_batch in bar:
+            input_x = jnp.array(data_batch['images'])
+            labels_y = jnp.array(data_batch['annotation'])
             input_x = normalize(input_x,
-                                mean=np.array([3.4925714]),
-                                std=np.array([31.330494]))
+                                mean=mean,
+                                std=std)
             cel, grads = loss_grad_fn(net_state, input_x, labels_y)
             updates, opt_state = opt.update(grads, opt_state, net_state)
             net_state = optax.apply_updates(net_state, updates)
             iterations_counter += 1
-            print(f"epoch: {e}, iteration: {iterations_counter}, loss: {cel}")
+            bar.set_description(f"epoch: {e}, loss: {cel:2.6f}")
+            train_loss_list.append((iterations_counter, cel))
 
-    pass
+        input_val = normalize(val_data['images'], mean=mean, std=std)
+        val_out = model.apply(net_state, input_val)
+        val_loss = jnp.mean(optax.softmax_cross_entropy(
+            val_out, nn.one_hot(val_data['annotation'], 2)))
+        print(f"Validation loss {val_loss:2.6f}")
+        val_loss_list.append((iterations_counter, val_loss))
+
+    tll = np.stack(train_loss_list, -1)
+    vll = np.stack(val_loss_list, -1)
+    plt.semilogy(tll[0], tll[1])
+    plt.semilogy(vll[0], vll[1])
+    plt.show()
+
+    with open('./weights/picaiunet.pkl', 'wb') as f:
+        pickle.dump(net_state, f)
+
+    print("Training done.")
 
 if __name__ == '__main__':
     train()

@@ -1,6 +1,8 @@
 import medpy.io
 import pytest
 import numpy as np
+import jax.numpy as jnp
+import jax.nn
 
 from src.medseg.data_loader import PicaiLoader
 
@@ -31,4 +33,12 @@ def test_sick_count():
     assert len(interesting_list) == 47
 
 
-
+def test_annotation():
+    import matplotlib.pyplot as plt
+    loader = PicaiLoader()
+    record = loader.get_record('10257_1000261')
+    interesting_annotation = record['annotation']
+    interesting_annotation_hot = jax.nn.one_hot(interesting_annotation, 2)
+    assert np.allclose(interesting_annotation_hot[..., 1], interesting_annotation)
+    assert np.allclose(interesting_annotation_hot[..., 0], 1-interesting_annotation)
+    pass
