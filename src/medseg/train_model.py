@@ -93,7 +93,7 @@ def train():
     epochs = 30
     batch_size = 6
     opt = optax.adam(learning_rate=0.001)
-    load_new = True
+    load_new = False
 
     model = UNet3D()
 
@@ -154,6 +154,7 @@ def train():
             val_out, nn.one_hot(val_data['annotation'], 2)))
         print(f"Validation loss {val_loss:2.6f}")
         val_loss_list.append((iterations_counter, val_loss))
+        # plt.imshow(jnp.max(nn.softmax(val_out)[0, ..., 1], -1)); plt.show()
 
     tll = np.stack(train_loss_list, -1)
     vll = np.stack(val_loss_list, -1)

@@ -92,6 +92,7 @@ class PicaiLoader(object):
         annos = self.annotation_dict[patient_key]
 
         # roi
+        import matplotlib.pyplot as plt
         t2w_img = sitk.ReadImage(images['t2w'])
         sag_img = sitk.ReadImage(images['sag'])
         cor_img = sitk.ReadImage(images['cor'])
@@ -102,6 +103,8 @@ class PicaiLoader(object):
         annos = sitk.ReadImage(annos)
         annos = sitk.GetArrayFromImage(annos).transpose((1, 2, 0))
         annos = annos[tuple(slices[0])]
+
+        # test_t2w = sitk.GetArrayFromImage(t2w_img).transpose((1, 2, 0))[tuple(slices[0])]
 
         # resample
         roi = skimage.transform.resize(regions[0], self.input_shape)
