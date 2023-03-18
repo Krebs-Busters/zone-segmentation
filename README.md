@@ -23,4 +23,4 @@ With label new, dataset is divided into batches and saved as pickled, saving the
 Once the training is done, weights are saved as pickled file in `./weights` path.'
 
 ### Model
-A 3D U-Net model is specified in `train.py` as sepcified in this [paper](https://arxiv.org/pdf/1505.04597.pdf).
+A 3D U-Net model is modelled in `train.py` as specified in this [paper](https://arxiv.org/pdf/1505.04597.pdf).
