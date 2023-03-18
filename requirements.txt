@@ -1,0 +1,9 @@
+jax
+numpy
+matplotlib
+flax
+tqdm
+scikit-image
+SimpleITK
+MedPy
+pytest
