@@ -82,7 +82,7 @@ def compute_roi(images):
     
     intersections = [i[tuple(box_inds)] for box_inds, i in zip(box_indices, arrays)]
 
-    if False:
+    if True:
         # plot rects
         names = ['tra', 'cor', 'sag', 'roi']
         color_keys = list(mcolors.TABLEAU_COLORS.keys())
