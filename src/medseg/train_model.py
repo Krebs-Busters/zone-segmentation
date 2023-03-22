@@ -41,7 +41,7 @@ class UNet3D(nn.Module):
     def __call__(self, x: jnp.ndarray):
         # x: i.e. (8, 256, 256, 21) transform to NDHWC
         x1 = jnp.expand_dims(x ,-1).transpose([0, 3, 1, 2, 4])
-        init_feat = 4 #8 # 16
+        init_feat = 8 # 16
         # TODO: switch to valid!
         x1 = nn.relu(nn.Conv(features=init_feat, kernel_size=(3,3,3), padding="SAME")(x1))
         x1 = nn.relu(nn.Conv(features=init_feat, kernel_size=(3,3,3), padding="SAME")(x1))
@@ -86,14 +86,14 @@ class UNet3D(nn.Module):
 
 
 def train():
-    val_keys = ['10257_1000261', '10730_1000746', '10525_1000535']
+    val_keys = ['10085_1000085', '10730_1000746', '10525_1000535']
 
     input_shape = [256, 256, 21]
     data_set = PicaiLoader(input_shape=input_shape, val_keys=val_keys)
-    epochs = 30
-    batch_size = 6
+    epochs = 50
+    batch_size = 4
     opt = optax.adam(learning_rate=0.001)
-    load_new = False
+    load_new = True
 
     model = UNet3D()
 
@@ -126,7 +126,7 @@ def train():
         with open('./data/pickled/batch_dump.pkl', 'rb') as file:
             epoch_batches = pickle.load(file)
 
-    val_data = data_set.get_val()
+    val_data = data_set.get_val(batch_size=batch_size)
     mean = jnp.array([3.4925714])
     std = jnp.array([31.330494])
     val_loss_list = []

@@ -7,6 +7,38 @@ import matplotlib.colors as mcolors
 from . import zone_segmentation_utils as utils
 
 
+def resample_image(inputImage, newSpacing, interpolator, defaultValue):
+    """From https://github.com/AnnekeMeyer/zone-segmentation/blob/c1a5f584c10afd31cbe5356d7e2f4371cb880b06/utils.py#L113"""
+
+    castImageFilter = sitk.CastImageFilter()
+    castImageFilter.SetOutputPixelType(sitk.sitkFloat32)
+    inputImage = castImageFilter.Execute(inputImage)
+
+    oldSize = inputImage.GetSize()
+    oldSpacing= inputImage.GetSpacing()
+    newWidth = oldSpacing[0]/newSpacing[0]* oldSize[0]
+    newHeight = oldSpacing[1] / newSpacing[1] * oldSize[1]
+    newDepth = oldSpacing[2] / newSpacing[2] * oldSize[2]
+    newSize = [int(newWidth), int(newHeight), int(newDepth)]
+
+    minFilter = sitk.StatisticsImageFilter()
+    minFilter.Execute(inputImage)
+    minValue = minFilter.GetMinimum()
+
+    filter = sitk.ResampleImageFilter()
+    inputImage.GetSpacing()
+    filter.SetOutputSpacing(newSpacing)
+    filter.SetInterpolator(interpolator)
+    filter.SetOutputOrigin(inputImage.GetOrigin())
+    filter.SetOutputDirection(inputImage.GetDirection())
+    filter.SetSize(newSize)
+    filter.SetDefaultPixelValue(defaultValue)
+    outImage = filter.Execute(inputImage)
+
+    return outImage
+
+
+
 def box_lines(size, start=[0, 0, 0]):
     stop = start + size
     bc = np.array([start[0],  start[1], start[2]])
@@ -82,7 +114,7 @@ def compute_roi(images):
     
     intersections = [i[tuple(box_inds)] for box_inds, i in zip(box_indices, arrays)]
 
-    if True:
+    if False:
         # plot rects
         names = ['tra', 'cor', 'sag', 'roi']
         color_keys = list(mcolors.TABLEAU_COLORS.keys())

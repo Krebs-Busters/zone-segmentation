@@ -34,9 +34,11 @@ def test_sick_count():
 
 
 def test_annotation():
+    # the roi as a problem in this case.
     import matplotlib.pyplot as plt
     loader = PicaiLoader()
-    record = loader.get_record('10257_1000261')
+    # record = loader.get_record('10257_1000261')
+    record = loader.get_record('10085_1000085')
     interesting_annotation = record['annotation']
     interesting_annotation_hot = jax.nn.one_hot(interesting_annotation, 2)
     assert np.allclose(interesting_annotation_hot[..., 1], interesting_annotation)

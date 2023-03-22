@@ -8,6 +8,7 @@ from typing import Tuple, List
 from multiprocessing.dummy import Pool
 
 from .util import compute_roi, compute_roi2
+from .util import resample_image
 
 
 class PicaiLoader(object):
@@ -29,7 +30,10 @@ class PicaiLoader(object):
             self.data_path.glob(f'full/picai_public_images_fold{self.fold}/**/*.mha'))
         self.annotations = list(
             pathlib.Path("data/picai_labels/csPCa_lesion_delineations/human_expert/resampled/").glob("*.nii.gz"))
-        
+        # self.annotations = list(
+        #     pathlib.Path("data/picai_labels/csPCa_lesion_delineations/human_expert/original/").glob("*.nii.gz")
+        # )
+
         self.create_images_dict()
         self.create_annotation_dict()
 
@@ -92,27 +96,42 @@ class PicaiLoader(object):
         annos = self.annotation_dict[patient_key]
 
         # roi
-        import matplotlib.pyplot as plt
         t2w_img = sitk.ReadImage(images['t2w'])
         sag_img = sitk.ReadImage(images['sag'])
         cor_img = sitk.ReadImage(images['cor'])
+        annos = sitk.ReadImage(annos)
+        
+        # Resample
+        t2w_img = resample_image(t2w_img, [0.5, 0.5, 3.], sitk.sitkLinear,0)
+        sag_img = resample_image(sag_img, [0.5, 0.5, 3.], sitk.sitkLinear,0)
+        cor_img = resample_image(cor_img, [0.5, 0.5, 3.], sitk.sitkLinear,0)
+        annos = resample_image(annos, [0.5, 0.5, 3.], sitk.sitkLinear,0)
+        
         regions, slices = compute_roi((t2w_img, cor_img, sag_img))
         # anneke = compute_roi2((t2w_img, cor_img, sag_img))
         # anneke = sitk.GetArrayFromImage(anneke[0])
+        import matplotlib.pyplot as plt
+        t2w_img_array = sitk.GetArrayFromImage(t2w_img).transpose((1, 2, 0))
 
-        annos = sitk.ReadImage(annos)
-        annos = sitk.GetArrayFromImage(annos).transpose((1, 2, 0))
-        annos = annos[tuple(slices[0])]
+
+        annos_array = sitk.GetArrayFromImage(annos).transpose((1, 2, 0))
+        anno_roi = annos_array[tuple(slices[0])]
 
         # test_t2w = sitk.GetArrayFromImage(t2w_img).transpose((1, 2, 0))[tuple(slices[0])]
 
         # resample
-        roi = skimage.transform.resize(regions[0], self.input_shape)
-        annos = skimage.transform.resize(annos.astype(np.uint8), self.input_shape, preserve_range=True)
-        annos = np.rint(annos)
+        resample = True
+        if resample:
+            t2w_roi = skimage.transform.resize(regions[0], self.input_shape)
+            anno_roi = skimage.transform.resize(
+                anno_roi.astype(np.uint8), self.input_shape, preserve_range=True)
+        else:
+            t2w_roi = regions[0]
+        anno_roi = np.rint(anno_roi)
         # TODO: support all labels.
-        annos = np.where(annos > 0.1, np.ones_like(annos), np.zeros_like(annos))
-        return {"images": roi, "annotation": annos}
+        anno_roi = np.where(anno_roi > 0.1, np.ones_like(anno_roi), np.zeros_like(anno_roi))
+        # plt.imshow((t2w_roi/np.max(t2w_roi) + anno_roi)[:, :, 10]); plt.show()
+        return {"images": t2w_roi, "annotation": anno_roi}
 
     def stack_samples(self, loaded_samples): 
         leaves_list = []
@@ -130,11 +149,13 @@ class PicaiLoader(object):
     def get_batch(self, batch_size: int):
         patient_keys = [self.get_key() for _ in range(batch_size)]
         # with Pool(self._workers) as p:
-        if 1:
-            # todo move from map to p.map after debugging.
-            batch_dict_list = list(map(self.get_record, patient_keys))
-            # batch_dict_list = p.map(self.get_record, patient_keys)
+        # todo move from map to p.map after debugging.
+        batch_dict_list = list(map(self.get_record, patient_keys))
+        # batch_dict_list = p.map(self.get_record, patient_keys)
+        if len(batch_dict_list) > 1:
             stacked = self.stack_samples(batch_dict_list)
+        else:
+            stacked = {key: np.expand_dims(el, 0) for key,el in batch_dict_list[0].items()}
         return stacked
 
     def get_epoch(self, batch_size):
@@ -142,12 +163,15 @@ class PicaiLoader(object):
         while self.reset is False:
             yield self.get_batch(batch_size)
 
-    def get_val(self):
+    def get_val(self, batch_size):
         if self.val_keys:
             val_samples = []
             for val_key in self.val_keys:
                 val_samples.append(self.get_record(val_key))
-            stacked = self.stack_samples(val_samples)
+            if batch_size > 1:
+                stacked = self.stack_samples(val_samples)
+            else:
+                stacked = [{key: np.expand_dims(el, 0) for key,el in val_sample.items()} for val_sample in val_samples]
             return stacked
         else:
             print("Warning: no validation keys found.")
