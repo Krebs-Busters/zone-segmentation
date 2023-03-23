@@ -120,7 +120,7 @@ class PicaiLoader(object):
         # test_t2w = sitk.GetArrayFromImage(t2w_img).transpose((1, 2, 0))[tuple(slices[0])]
 
         # resample
-        resample = True
+        resample = False
         if resample:
             t2w_roi = skimage.transform.resize(regions[0], self.input_shape)
             anno_roi = skimage.transform.resize(

@@ -9,12 +9,12 @@ def test_mean_std():
     images = []
     for pos, key in enumerate(loader.patient_keys):
         image = loader.get_record(key)['images']
-        images.append(image.astype(np.float32))
+        images.append(image.astype(np.float32).flatten())
         print(pos, key)
-    data_set = np.stack(images)
+    data_set = np.concatenate(images, -1)
     del images
     mean = np.mean(data_set)
     std = np.std(data_set)
     print(mean, std)
-    np.allclose([3.4881113, 31.359411], [mean, std], atol=1e-6)
+    np.allclose([206.12558, 164.74423], [mean, std], atol=1e-6)
 
