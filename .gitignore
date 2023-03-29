@@ -5,6 +5,8 @@ htmlcov
 .noseids
 data/full/
 data/picai_labels
+data/pickled
+weights/
 
 
 # Byte-compiled / optimized / DLL files
