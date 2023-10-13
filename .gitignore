@@ -8,7 +8,6 @@ data/picai_labels/
 data/gtexport/
 data/pickled/
 data/tciaDownload/
-weights/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

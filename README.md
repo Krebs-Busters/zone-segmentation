@@ -2,12 +2,10 @@ Cancer-segmentation
 -------------------
 
 ### Getting started
-Start by navigating into the data folder and run `python download.py` to download the [PI-CAI dataset](https://zenodo.org/record/6624726).
-This might take some time to download and unzip. 
-Don't foget to clone the annotation repo via `git clone https://github.com/DIAGNijmegen/picai_labels`.
+Start by navigating into the data folder and run `python download.py` to set up the training data.
 
 ### Requirements
-All the libraries required to run this project is specified in requirements.txt
+All the libraries required to run this project are specified in requirements.txt
 
 ### Training & Validation
 For training, run `python train.py`.
@@ -17,3 +15,8 @@ Once the training is done, weights are saved as pickled file in `./weights` path
 
 ### Model
 A 3D U-Net model is modelled in `train.py` as specified in this [paper](https://arxiv.org/pdf/1505.04597.pdf).
+
+### To test the model run
+```bash
+python src/medseg/sample.py
+```
