@@ -6,8 +6,8 @@ sys.path.insert(0, "./src")
 import jax.numpy as jnp
 import pytest
 
-from src.data_loader import Loader
-from src.meanIoU import compute_iou
+from src.medseg.data_loader import Loader
+from src.medseg.meanIoU import compute_iou
 
 input_records = ["ProstateX-0004", "ProstateX-0007", "ProstateX-0311"]
 

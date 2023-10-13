@@ -8,8 +8,8 @@ from jax.config import config
 config.update("jax_platform_name", "cpu")
 sys.path.insert(0, "./src/")
 
-from src.data_loader import Loader
-from src.util import compute_roi, resample_image
+from src.medseg.data_loader import Loader
+from src.medseg.util import compute_roi, resample_image
 
 
 @pytest.mark.offline

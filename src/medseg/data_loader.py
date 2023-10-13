@@ -10,8 +10,8 @@ import numpy as np
 import SimpleITK as sitk  # noqa: N813
 import skimage
 
-from util import compute_roi  # , compute_roi2
-from util import resample_image
+from .util import compute_roi  # , compute_roi2
+from .util import resample_image
 
 
 class Loader(object):

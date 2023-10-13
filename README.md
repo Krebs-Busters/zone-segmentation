@@ -9,13 +9,6 @@ Don't foget to clone the annotation repo via `git clone https://github.com/DIAGN
 ### Requirements
 All the libraries required to run this project is specified in requirements.txt
 
-### Data-loader
-Run,
-```bash
-./scripts/profile_data_loader.sh
-```
-to profile the data loader.
-
 ### Training & Validation
 For training, run `python train.py`.
 In case of training for the first time, change the variable `load_new` to True.

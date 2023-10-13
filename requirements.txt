@@ -7,3 +7,6 @@ scikit-image
 SimpleITK
 MedPy
 pytest
+medpy
+clu
+tensorflow

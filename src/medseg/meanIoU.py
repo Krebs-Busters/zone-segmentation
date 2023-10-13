@@ -5,8 +5,8 @@ import pickle
 
 import jax.numpy as jnp
 
-from data_loader import Loader
-from train import UNet3D, normalize
+from .data_loader import Loader
+from .train import UNet3D, normalize
 
 
 def compute_iou(preds: jnp.ndarray, target: jnp.ndarray) -> jnp.ndarray:

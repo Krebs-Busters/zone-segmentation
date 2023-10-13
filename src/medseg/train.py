@@ -19,8 +19,8 @@ from flax import linen as nn
 from flax.core.frozen_dict import FrozenDict
 from tqdm import tqdm
 
-from data_loader import Loader
-from util import softmax_focal_loss
+from .data_loader import Loader
+from .util import softmax_focal_loss
 
 
 @jax.jit
