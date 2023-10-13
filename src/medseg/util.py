@@ -1,85 +1,155 @@
-import SimpleITK as sitk
+"""Medical image segmentation helper functions."""
 
-import numpy as np
-import matplotlib.pyplot as plt
+from typing import List, Tuple
+
+import chex
+import jax
+import jax.numpy as jnp
 import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+import numpy as np
+import optax
+import SimpleITK as sitk  # noqa: N813
+from SimpleITK.SimpleITK import Image
 
-from . import zone_segmentation_utils as utils
+# from . import zone_segmentation_utils as utils
 
 
-def resample_image(inputImage, newSpacing, interpolator, defaultValue):
-    """From https://github.com/AnnekeMeyer/zone-segmentation/blob/c1a5f584c10afd31cbe5356d7e2f4371cb880b06/utils.py#L113"""
+def resample_image(input_image, new_spacing, interpolator, default_value):
+    """Resample the input scans.
 
-    castImageFilter = sitk.CastImageFilter()
-    castImageFilter.SetOutputPixelType(sitk.sitkFloat32)
-    inputImage = castImageFilter.Execute(inputImage)
+    Adapted from
+    https://github.com/AnnekeMeyer/zone-segmentation/blob/c1a5f584c10afd31cbe5356d7e2f4371cb880b06/utils.py#L113
+    """
+    cast_image_filter = sitk.CastImageFilter()
+    cast_image_filter.SetOutputPixelType(sitk.sitkFloat32)
+    input_image = cast_image_filter.Execute(input_image)
 
-    oldSize = inputImage.GetSize()
-    oldSpacing= inputImage.GetSpacing()
-    newWidth = oldSpacing[0]/newSpacing[0]* oldSize[0]
-    newHeight = oldSpacing[1] / newSpacing[1] * oldSize[1]
-    newDepth = oldSpacing[2] / newSpacing[2] * oldSize[2]
-    newSize = [int(newWidth), int(newHeight), int(newDepth)]
+    old_size = input_image.GetSize()
+    old_spacing = input_image.GetSpacing()
+    new_width = old_spacing[0] / new_spacing[0] * old_size[0]
+    new_height = old_spacing[1] / new_spacing[1] * old_size[1]
+    new_depth = old_spacing[2] / new_spacing[2] * old_size[2]
+    new_size = [int(new_width), int(new_height), int(new_depth)]
 
-    minFilter = sitk.StatisticsImageFilter()
-    minFilter.Execute(inputImage)
-    minValue = minFilter.GetMinimum()
+    min_filter = sitk.StatisticsImageFilter()
+    min_filter.Execute(input_image)
+    # min_value = min_filter.GetMinimum()
 
     filter = sitk.ResampleImageFilter()
-    inputImage.GetSpacing()
-    filter.SetOutputSpacing(newSpacing)
+    input_image.GetSpacing()
+    filter.SetOutputSpacing(new_spacing)
     filter.SetInterpolator(interpolator)
-    filter.SetOutputOrigin(inputImage.GetOrigin())
-    filter.SetOutputDirection(inputImage.GetDirection())
-    filter.SetSize(newSize)
-    filter.SetDefaultPixelValue(defaultValue)
-    outImage = filter.Execute(inputImage)
+    filter.SetOutputOrigin(input_image.GetOrigin())
+    filter.SetOutputDirection(input_image.GetDirection())
+    filter.SetSize(new_size)
+    filter.SetDefaultPixelValue(default_value)
+    out_image = filter.Execute(input_image)
 
-    return outImage
+    return out_image
 
 
+def plot_box(box: List[np.ndarray]) -> None:
+    """Plot a box as a matplotlib figure.
 
-def box_lines(size, start=[0, 0, 0]):
+    Args:
+        box (List[np.ndarray]): A list of lines
+            as produced by the box_lines function.
+    """
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    for linepos, line in enumerate(box):
+        if linepos == 0:
+            ax.plot(line[0, 0], line[0, 1], line[0, 2], "s")
+        ax.plot(line[:, 0], line[:, 1], line[:, 2], "-.")
+    plt.show()
+
+
+origin = np.array([0, 0, 0])
+
+
+def box_lines(size: np.ndarray, start: np.ndarray = origin) -> List[np.ndarray]:
+    """Create a box of a given size.
+
+    Args:
+        size (np.ndarray): A 3d array which specifies the
+            height, widht and depth of the box.
+        start (np.ndarray): A 3d dimensional displacement
+            vector for the bottom front edge of the box.
+            Defaults to the origin at [0, 0, 0].
+
+    Returns:
+        List[np.ndarray]: A list of boundary lines,
+            which form a box.
+            Use the `plot_box` function to visualize
+            what happens.
+    """
     stop = start + size
-    bc = np.array([start[0],  start[1], start[2]])
-    br = np.array([stop[0],   start[1], start[2]])
-    bl = np.array([start[0],  stop[1],  start[2]])
-    bb = np.array([stop[0],   stop[1],  start[2]])
-    tc = np.array([start[0],  start[1], stop[2]])
-    tr = np.array([stop[0],   start[1], stop[2]])
-    tl = np.array([start[0],  stop[1],  stop[2]])
-    tb = np.array([stop[0],   stop[1],  stop[2]])
-    lines = [np.linspace(bc, br, 100),
-             np.linspace(br, bb, 100),
-             np.linspace(bb, bl, 100),
-             np.linspace(bl, bc, 100),
-             np.linspace(bb, tb, 100),
-             np.linspace(bl, tl, 100),
-             np.linspace(bc, tc, 100),
-             np.linspace(br, tr, 100),
-             np.linspace(tc, tr, 100),
-             np.linspace(tr, tb, 100),
-             np.linspace(tb, tl, 100),
-             np.linspace(tl, tc, 100)]
+    bc = np.array([start[0], start[1], start[2]])
+    br = np.array([stop[0], start[1], start[2]])
+    bl = np.array([start[0], stop[1], start[2]])
+    bb = np.array([stop[0], stop[1], start[2]])
+    tc = np.array([start[0], start[1], stop[2]])
+    tr = np.array([stop[0], start[1], stop[2]])
+    tl = np.array([start[0], stop[1], stop[2]])
+    tb = np.array([stop[0], stop[1], stop[2]])
+    lines = [
+        np.linspace(bc, br, 100),
+        np.linspace(br, bb, 100),
+        np.linspace(bb, bl, 100),
+        np.linspace(bl, bc, 100),
+        np.linspace(bb, tb, 100),
+        np.linspace(bl, tl, 100),
+        np.linspace(bc, tc, 100),
+        np.linspace(br, tr, 100),
+        np.linspace(tc, tr, 100),
+        np.linspace(tr, tb, 100),
+        np.linspace(tb, tl, 100),
+        np.linspace(tl, tc, 100),
+    ]
     return lines
 
-def compute_roi(images):
+
+def compute_roi(images: Tuple[Image, Image, Image]):
+    """Find the region of interest (roi) of our medical scan tensors.
+
+    Args:
+        images (List[sitk.SimpleITK.Image]):
+            A tuple with the axial t2w (t2w), saggital t2w (sag),
+            and coronal t2w (cor) images.
+            See i.e. https://en.wikipedia.org/wiki/Anatomical_plane
+            for a defenition of these terms.
+
+    Returns:
+        List[List[np.ndarray], List[slice]]:
+            'intersections', a list of rois for every input scan
+            and 'box_indices' a List with the start and end indices of
+            every scan in the original tensor.
+            See https://docs.python.org/3/library/functions.html#slice
+            for more information regarding python slices.
+    """
     assert len(images) == 3
 
+    # get the displacement vectors from the origin for every scan.
     origins = [np.asarray(img.GetOrigin()) for img in images]
-    sizes = [np.asarray(img.GetSpacing())*np.asarray(img.GetSize()) for img in images]
-    orientations = [np.asarray(img.GetDirection()).reshape(3, 3) for img in images]
+    # find height, width and depth of every image-tensor.
+    sizes = [np.asarray(img.GetSpacing()) * np.asarray(img.GetSize()) for img in images]
+    # create a list with the rotation matrices for every scan.
+    rotation = [np.asarray(img.GetDirection()).reshape(3, 3) for img in images]
 
     rects = []
     for pos, size in enumerate(sizes):
         lines = box_lines(size)
-        rotated = [(orientations[pos]@line.T).T for line in lines]
-        shifted = [origins[pos]+line for line in rotated]
+        rotated = [(rotation[pos] @ line.T).T for line in lines]
+        shifted = [origins[pos] + line for line in rotated]
         rects.append(shifted)
 
     # find the intersection.
-    rects = np.stack(rects)
-    bbs = [(np.amin(rect, axis=(0,1)), np.amax(rect, axis=(0,1))) for rect in rects]
+    rects_stacked = np.stack(rects)  # Had to rename because of mypy
+    bbs = [
+        (np.amin(rect, axis=(0, 1)), np.amax(rect, axis=(0, 1)))
+        for rect in rects_stacked
+    ]
 
     # compute intersection
     lower_end = np.amax(np.stack([bb[0] for bb in bbs], axis=0), axis=0)
@@ -88,67 +158,82 @@ def compute_roi(images):
     roi_bb_size = roi_bb[1] - roi_bb[0]
 
     roi_bb_lines = np.stack(box_lines(roi_bb_size, roi_bb[0]))
-    rects = np.concatenate([rects, np.expand_dims(roi_bb_lines, 0)])
+    rects_stacked = np.concatenate([rects_stacked, np.expand_dims(roi_bb_lines, 0)])
 
     spacings = [image.GetSpacing() for image in images]
     # compute roi coordinates in image space.
-    img_coord_rois = [((np.linalg.inv(rot)@(roi_bb[0] - offset).T).T / spacing,
-                       (np.linalg.inv(rot)@(roi_bb[1] - offset).T).T / spacing)
-                         for rot, offset, spacing in zip(orientations, origins, spacings)]
+    img_coord_rois = [
+        (
+            (np.linalg.inv(rot) @ (roi_bb[0] - offset).T).T / spacing,
+            (np.linalg.inv(rot) @ (roi_bb[1] - offset).T).T / spacing,
+        )
+        for rot, offset, spacing in zip(rotation, origins, spacings)
+    ]
 
-
+    # use the roi-box to extract the corresponding array elements.
     arrays = [sitk.GetArrayFromImage(image).transpose((1, 2, 0)) for image in images]
     box_indices = []
     for ib, array in zip(img_coord_rois, arrays):
         img_indices = []
         low, up = np.amin(ib, axis=0), np.amax(ib, axis=0)
+        # sometimes the prostate is centered on all images.
+        # add a security margin.
+        low = low - 20
+        up = up + 20
         for pos, dim in enumerate(array.shape):
+
             def in_array(in_int, dim):
                 in_int = int(in_int)
                 in_int = 0 if in_int < 0 else in_int
                 in_int = dim if in_int > dim else in_int
                 return in_int
-            img_indices.append(slice(in_array(low[pos], dim),
-                                     in_array(up[pos], dim)))
+
+            img_indices.append(slice(in_array(low[pos], dim), in_array(up[pos], dim)))
         box_indices.append(img_indices)
-    
+
     intersections = [i[tuple(box_inds)] for box_inds, i in zip(box_indices, arrays)]
 
     if False:
         # plot rects
-        names = ['tra', 'cor', 'sag', 'roi']
+        names = ["tra", "cor", "sag", "roi"]
         color_keys = list(mcolors.TABLEAU_COLORS.keys())
         fig = plt.figure()
-        ax = fig.add_subplot(projection='3d')
-        for pos, rect in enumerate(rects):
-            color = color_keys[pos%len(color_keys)]
+        ax = fig.add_subplot(projection="3d")
+        for pos, rect in enumerate(rects_stacked):
+            color = color_keys[pos % len(color_keys)]
             for linepos, line in enumerate(rect):
                 if linepos == 0:
-                    ax.plot(line[0, 0], line[0, 1], line[0 , 2] , 's', color=color, label=names[pos])
-                ax.plot(line[:, 0], line[:, 1], line[:, 2] , '-.', color=color)
+                    ax.plot(
+                        line[0, 0],
+                        line[0, 1],
+                        line[0, 2],
+                        "s",
+                        color=color,
+                        label=names[pos],
+                    )
+                ax.plot(line[:, 0], line[:, 1], line[:, 2], "-.", color=color)
         plt.legend()
         plt.show()
 
-        for pos, rect in enumerate(rects):
-            color = color_keys[pos%len(color_keys)]
+        for pos, rect in enumerate(rects_stacked):
+            color = color_keys[pos % len(color_keys)]
             for linepos, line in enumerate(rect):
                 if linepos == 0:
-                    plt.plot(line[0, 0], line[0, 1], 's', color=color, label=names[pos])
-                plt.plot(line[:, 0], line[:, 1], '-.', color=color)
-        plt.legend(loc='upper right')
-        plt.title('X,Y-View')
+                    plt.plot(line[0, 0], line[0, 1], "s", color=color, label=names[pos])
+                plt.plot(line[:, 0], line[:, 1], "-.", color=color)
+        plt.legend(loc="upper right")
+        plt.title("X,Y-View")
         plt.show()
 
-        for pos, rect in enumerate(rects):
-            color = color_keys[pos%len(color_keys)]
+        for pos, rect in enumerate(rects_stacked):
+            color = color_keys[pos % len(color_keys)]
             for linepos, line in enumerate(rect):
                 if linepos == 0:
-                    plt.plot(line[0, 1], line[0, 2], 's', color=color, label=names[pos])
-                plt.plot(line[:, 1], line[:, 2], '-.', color=color)
-        plt.legend(loc='upper right')
-        plt.title('Y-Z-View')
+                    plt.plot(line[0, 1], line[0, 2], "s", color=color, label=names[pos])
+                plt.plot(line[:, 1], line[:, 2], "-.", color=color)
+        plt.legend(loc="upper right")
+        plt.title("Y-Z-View")
         plt.show()
-
 
         # img_coord_tra = img_coord_rois[0]
         # sitk getShape and GetArrayFromImage return transposed results.
@@ -159,70 +244,81 @@ def compute_roi(images):
     return intersections, box_indices
 
 
+def sigmoid_focal_loss(
+    logits: jnp.ndarray,
+    labels: jnp.ndarray,
+    alpha: float = -1,
+    gamma: float = 2,
+) -> jnp.ndarray:
+    """Compute a sigmoid focal loss.
+
+    Implementation of the focal loss as used https://arxiv.org/abs/1708.02002.
+    This loss often appears in the segmentation context.
+    Use this loss function if classes are not mutually exclusive.
+    See `sigmoid_binary_cross_entropy` for more information.
+
+    Args:
+        logits: A float array of arbitrary shape.
+                The predictions for each example.
+        labels: A float array, its shape must be identical to
+                that of logits. It containes the binary
+                 classification label for each element in logits
+                (0 for the out of class and 1 for in class).
+                This array is often one-hot encoded.
+        alpha: (optional) Weighting factor in range (0,1) to balance
+                positive vs negative examples. Default = -1 (no weighting).
+        gamma: Exponent of the modulating factor (1 - p_t) to
+               balance easy vs hard examples.
+
+    Returns:
+        A loss value array with a shape identical to the logits and target
+        arrays.
+    """
+    chex.assert_type([logits], float)
+    labels = labels.astype(logits.dtype)
+
+    # see also the original implementation at:
+    # https://github.com/facebookresearch/fvcore/blob/main/fvcore/nn/focal_loss.py
+    p = jax.nn.sigmoid(logits)
+    ce_loss = optax.sigmoid_binary_cross_entropy(logits, labels)
+    p_t = p * labels + (1 - p) * (1 - labels)
+    loss = ce_loss * ((1 - p_t) ** gamma)
+    if alpha >= 0:
+        alpha_t = alpha * labels + (1 - alpha) * (1 - labels)
+        loss = alpha_t * loss
+    return loss
 
 
-def compute_roi2(images):
+def softmax_focal_loss(
+    logits: jnp.ndarray,
+    labels: jnp.ndarray,
+    alpha: jnp.ndarray,
+    gamma: float = 2,
+) -> jnp.ndarray:
+    """Compute a softmax focal loss."""
+    chex.assert_type([logits], float)
+    # see also the original sigmoid implementation at:
+    # https://github.com/facebookresearch/fvcore/blob/main/fvcore/nn/focal_loss.py
+    chex.assert_type([logits], float)
+    focus = jnp.power(-jax.nn.softmax(logits, axis=-1) + 1.0, gamma)
+    loss = -labels * alpha * focus * jax.nn.log_softmax(logits, axis=-1)
+    return jnp.sum(loss, axis=-1)
 
-    img_tra = images[0]
-    img_cor = images[1]
-    img_sag = images[2]
 
-    # normalize intensities
-    print('... normalize intensities ...')
-    img_tra, img_cor, img_sag = utils.normalizeIntensitiesPercentile(img_tra, img_cor, img_sag)
-
-    # get intersecting region (bounding box)
-    print('... get intersecting region (ROI) ...')
-
-    # upsample transversal image to isotropic voxel size (isotropic transversal image coordinate system is used as reference coordinate system)
-    tra_HR = utils.resampleImage(img_tra, [0.5, 0.5, 0.5], sitk.sitkLinear,0)
-    # tra_HR = utils.sizeCorrectionImage(tra_HR, factor=6, imgSize=168)
-    tra_HR = utils.crop_and_pad_sitk(tra_HR, [168, 168, 168])
-
-    # resample coronal and sagittal to tra_HR space
-    # resample coronal to tra_HR and obtain mask (voxels that are defined in coronal image )
-    cor_toTraHR = utils.resampleToReference(img_cor, tra_HR, sitk.sitkLinear,-1)
-    cor_mask = utils.binaryThresholdImage(cor_toTraHR, 0)
-
-    tra_HR_Float = utils.castImage(tra_HR, sitk.sitkFloat32)
-    cor_mask_Float = utils.castImage(cor_mask, sitk.sitkFloat32)
-    # mask transversal volume (set voxels, that are defined only in transversal image but not in coronal image, to 0)
-    coronal_masked_traHR = sitk.Multiply(tra_HR_Float, cor_mask_Float)
-
-    # resample sagittal to tra_HR and obtain mask (voxels that are defined in sagittal image )
-    sag_toTraHR = utils.resampleToReference(img_sag, tra_HR, sitk.sitkLinear,-1)
-    sag_mask = utils.binaryThresholdImage(sag_toTraHR, 0)
-    # mask sagittal volume
-    sag_mask_Float = utils.castImage(sag_mask, sitk.sitkFloat32)
-
-    # masked image contains voxels, that are defined in tra, cor and sag images
-    maskedImg = sitk.Multiply(sag_mask_Float, coronal_masked_traHR)
-    boundingBox = utils.getBoundingBox(maskedImg)
-
-    # correct the size and start position of the bounding box according to new size
-    start, size = utils.sizeCorrectionBoundingBox(boundingBox, newSize=168, factor=6)
-    start[2] = 0
-    start = list(s if s > 0 else 0 for s in start)
-    size[2] = tra_HR.GetSize()[2]
-
-    # resample cor and sag to isotropic transversal image space
-    cor_traHR = utils.resampleToReference(img_cor, tra_HR, sitk.sitkLinear, -1)
-    sag_traHR = utils.resampleToReference(img_sag, tra_HR, sitk.sitkLinear,-1)
-
-    ## extract bounding box for all planes
-    region_tra = sitk.RegionOfInterest(tra_HR, [size[0], size[1], size[2]],
-                                       [start[0], start[1], start[2]])
-    maxVal = utils.getMaximumValue(region_tra)
-    region_tra = utils.thresholdImage(region_tra, 0, maxVal, 0)
-
-    region_cor = sitk.RegionOfInterest(cor_traHR, [size[0], size[1], size[2]],
-                                       [start[0], start[1], start[2]])
-    maxVal = utils.getMaximumValue(region_cor)
-    region_cor = utils.thresholdImage(region_cor, 0, maxVal, 0)
-
-    region_sag = sitk.RegionOfInterest(sag_traHR, [size[0], size[1], size[2]],
-                                       [start[0], start[1], start[2]])
-    maxVal = utils.getMaximumValue(region_sag)
-    region_sag = utils.thresholdImage(region_sag, 0, maxVal, 0)
-
-    return region_tra, start, size
+# def tversky(y_true, y_pred, alpha=.3, beta=.7):
+#     """See: https://arxiv.org/pdf/1706.05721.pdf"""
+#     y_true_f = jnp.reshape(y_true, -1)
+#     y_pred_f = jnp.reshape(y_pred, -1)
+#     intersection = jnp.sum(y_true_f * y_pred_f)
+#     G_P = alpha * jnp.sum((1 - y_true_f) * y_pred_f)  # G not P
+#     P_G = beta * jnp.sum(y_true_f * (1 - y_pred_f))  # P not G
+#     return (intersection + 1.) / (intersection + 1. + G_P + P_G)
+#
+# def Tversky_loss(y_true, y_pred):
+#     return -tversky(y_true, y_pred)
+#
+#
+# def dice_coeff(logits, labels):
+#     pred_probs = jax.nn.softmax(logits)
+#     intersection = jnp.sum(labels * logits)
+#     return ((2. * intersection + 1.) / (jnp.sum(labels) + jnp.sum(pred_probs) + 1.))*(-1.)

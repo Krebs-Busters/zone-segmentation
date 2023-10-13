@@ -1,32 +1,79 @@
-from tqdm import tqdm
-import urllib.request
-from pathlib import Path
-import zipfile
-import pdb
+import os
+import shutil
+import pickle
+import pathlib
+from tcia_utils import nbia
 
-data_location = 'https://zenodo.org/record/6624726'
-
-files = ["picai_public_images_fold{}.zip".format(i) for i in range(0,5)]
-picai_url = [(data_location + '/files/' + file, 'full/' + file) for file in files]
+if not os.path.exists("./data/"):
+    os.makedirs("./data/")
 
 
-def load_and_store(file_list):
-    for online_path, local_path in tqdm(file_list, desc='downloading'):
-        urllib.request.urlretrieve(online_path, local_path)
+# download the segmentations
+download_from = 'https://isgwww.cs.uni-magdeburg.de/cas/isbi2019/Data.zip'
 
-print("dowloading... this will take a while. Please be patient.")
-Path("full/").mkdir(exist_ok=True)
-load_and_store(picai_url)
-print("download ok")
+import requests, zipfile, io
+r = requests.get(download_from)
+z = zipfile.ZipFile(io.BytesIO(r.content))
+z.extractall("./data/")
+shutil.move("./data/GT Export", "./data/gtexport")
 
-print("Extracting...")
-def extract_zip_in_folder(file_list):
-    for file in tqdm(file_list, desc='extracting'):
-        with zipfile.ZipFile(file, 'r') as zip:
-            folder = Path('full/' + file.split('/')[-1][:-4])
-            folder.mkdir(exist_ok=True)
-            zip.extractall(path=folder)
+print('annotation download complete.')
 
+annotations = list(
+    pathlib.Path("./data/gtexport/Train/").glob("*/*.nrrd"))
+annotations_test = list(
+    pathlib.Path("./data/gtexport/Test/").glob("*/*.nrrd"))
+annotations += annotations_test
 
-local_zips = list(purl[1] for purl in picai_url)
-extract_zip_in_folder(local_zips)
+annotation_dict = {}
+for annotation_path in annotations:
+    patient_id = str(annotation_path).split('/')[-2]
+    annotation_dict[patient_id] = annotation_path
+
+# download the images
+nbia.getCollections()
+index = nbia.getSeries("ProstateX")
+
+with open('./data/scan_index.pkl', 'wb') as f:
+    pickle.dump(index, f)
+
+patient_series_dict = {}
+for entry in index:
+    id = entry['PatientID']
+    seriesuid = entry['SeriesInstanceUID']
+    try:
+        protocol = entry['ProtocolName']
+        if id not in patient_series_dict.keys():
+            patient_series_dict[id] = {}
+        
+        patient_series_dict[id][protocol] = seriesuid
+    except:
+        pass
+        # print(f"suid {seriesuid}, Id: {id} missing protocol")
+
+# verify data
+patients_ok = []
+interesting_protocols = ['t2_tse_tra', 't2_tse_sag', 't2_tse_cor']
+for key, patient in patient_series_dict.items():
+    test = []
+    for protocol_key in interesting_protocols:
+        test.append(protocol_key in patient.keys())
+    if all(test):
+        patients_ok.append(key)
+print(f"found {len(patients_ok)} complete scans in metadata.")
+
+# check overlap
+for test_key in annotation_dict:
+    assert test_key in patients_ok
+
+to_download = []
+for anno_key in annotation_dict:
+    suids = [(patient_series_dict[anno_key][prot]) for prot in ['t2_tse_tra', 't2_tse_sag', 't2_tse_cor']]
+    to_download.extend(suids)
+
+index = list(filter(lambda fl: fl['SeriesInstanceUID'] in to_download, index))
+
+nbia.downloadSeries(index)
+shutil.move("tciaDownload", "./data/tciaDownload")
+
+print("raw data download done.")
