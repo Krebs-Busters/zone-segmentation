@@ -20,3 +20,7 @@ A 3D U-Net model is modelled in `train.py` as specified in this [paper](https://
 ```bash
 python src/medseg/sample.py
 ```
+
+### Skyra_Mannheim
+- Drei Teile zusammenfügen.
+- 
