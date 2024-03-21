@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import optax
 from data_loader import Loader
 from flax import linen as nn
-
 from train import UNet3D, normalize
 
 if __name__ == "__main__":

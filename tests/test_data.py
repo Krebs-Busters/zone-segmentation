@@ -1,4 +1,5 @@
 """Test the python function from src."""
+
 import sys
 
 import pytest

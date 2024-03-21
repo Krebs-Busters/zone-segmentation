@@ -1,4 +1,5 @@
 """Test the IoU compute function."""
+
 import sys
 
 sys.path.insert(0, "./src")

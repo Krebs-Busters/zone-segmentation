@@ -1,4 +1,5 @@
 """Ensure the data loading works as expected."""
+
 import jax.nn
 import medpy.io
 import numpy as np
