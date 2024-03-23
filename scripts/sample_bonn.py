@@ -13,7 +13,6 @@ from tqdm import tqdm
 import SimpleITK as sitk  # noqa: N813
 import skimage
 
-
 from src.medseg.train import UNet3D, normalize
 from src.medseg.util import resample_image, compute_roi
 
@@ -41,6 +40,8 @@ def load_bonn(path: str):
             if len(patient_id) > 1:
                 # gets rid of the 1000.
                 patient_id = patient_id[1]
+            else:
+                patient_id = patient_id[0]
         if 'T2_cor' in folder:
             cor = read_folder(root)
             store_img_in_dict(images, cor, patient_id, 'cor')
@@ -58,25 +59,11 @@ def get_roi(t2w_img, sag_img, input_shape):
         # Resample
         t2w_img = resample_image(t2w_img, [0.5, 0.5, 3.0], sitk.sitkLinear, 0)
         sag_img = resample_image(sag_img, [0.5, 0.5, 3.0], sitk.sitkLinear, 0)
-        # cor_img = resample_image(cor_img, [0.5, 0.5, 3.0], sitk.sitkLinear, 0)
-        # annos = resample_image(annos, [0.5, 0.5, 3.0], sitk.sitkLinear, 0)
-
         regions, _ = compute_roi((t2w_img, sag_img))
-        # anneke = compute_roi2((t2w_img, cor_img, sag_img))
-        # anneke = sitk.GetArrayFromImage(anneke[0])
-        # import matplotlib.pyplot as plt
-        # t2w_img_array = sitk.GetArrayFromImage(t2w_img).transpose((1, 2, 0))
-
-        # annos_array = sitk.GetArrayFromImage(annos).transpose((1, 2, 0))
-        # anno_roi = annos_array[tuple(slices[0])]
-
-        # test_t2w = sitk.GetArrayFromImage(t2w_img).transpose((1, 2, 0))[tuple(slices[0])]
-
         # resample
         resample = True
         if resample:
             t2w_roi = skimage.transform.resize(regions[0], input_shape)
-
         return t2w_roi
 
 
@@ -87,24 +74,20 @@ if __name__ == "__main__":
         data: jnp.ndarray, out: jnp.ndarray, slice: int = 11
     ):
         """Plot the original image, network output and annotation."""
-        plt.title("scan")
-        plt.imshow(data[:, :, slice])
+        data_pick = data[:, :, slice]
+        net_seg_pick = jnp.argmax(out[0, :, :, slice], axis=-1)
+        plt.title("overlay")
+        plt.imshow(data_pick/jnp.max(data_pick) + net_seg_pick/jnp.max(net_seg_pick))
         plt.show()
-        plt.title("network")
-        plt.imshow(jnp.argmax(out[0, :, :, slice], axis=-1), vmin=0, vmax=5)
-        plt.show()
-        # plt.title("human expert")
-        # plt.imshow(data["annotation"][sample, :, :, slice], vmin=0, vmax=5)
-        # plt.show()
-        pass
-
 
     mean = jnp.array([206.12558])
     std = jnp.array([164.74423])
     input_shape = [128, 128, 21]
 
     # remove 001 for all scans.
-    path = '/run/user/1000/gvfs/smb-share:server=klinik.bn,share=nas,user=bwichtmann/RAD-MRT/Barbara_Fingerprint/Project_MRF/001'
+    # path = '/home/admin_ml/Barbara/localMRF/Project_MRF/test/171'
+    path = '/run/user/1000/gvfs/smb-share:server=klinik.bn,share=nas,user=bwichtmann/RAD-MRT/Barbara_Fingerprint/Project_MRF_2/'
+
     bonn_scans = load_bonn(path)
     bonn_rois = {}
     # extract rois
@@ -112,14 +95,35 @@ if __name__ == "__main__":
         bonn_rois[id] = get_roi(images['tra'], images['sag'], input_shape)
 
    
+    # network = "./weights/unet_499.pkl"
+    network = "./weights/unet_tuned_99.pkl"
+
     model = UNet3D()
-    with open("./weights/unet_499.pkl", "rb") as f:
+    with open(network, "rb") as f:
         net_state = pickle.load(f)
 
-    mannheim_net_segs = {}
+    net_segs = {}
     for id, roi in bonn_rois.items():
         norm_roi = normalize(jnp.array(roi), mean=mean, std=std)
         val_out = model.apply(net_state, jnp.expand_dims(norm_roi, 0))
-        disp_result(roi, val_out)
+        # disp_result(roi, val_out)
+        net_segs[id] = jnp.argmax(val_out[0], axis=-1)
 
-    pass
+
+    # export segmentation
+    to_export = {}
+    for id in net_segs.keys():
+        target_shape = bonn_scans[id]['tra'].GetSize()
+        target_space = bonn_scans[id]['tra'].GetSpacing()
+        target_origin = bonn_scans[id]['tra'].GetOrigin()
+        target_rotation = bonn_scans[id]['tra'].GetDirection()
+        resized = skimage.transform.resize(net_segs[id], target_shape)
+        export_image = sitk.GetImageFromArray(resized)
+        export_image = resample_image(export_image, target_space, sitk.sitkLinear, 0)
+        export_image.SetOrigin(target_origin)
+        export_image.SetDirection(target_rotation)
+        to_export[id] = export_image
+
+        sitk.WriteImage(export_image, f'./temp/export/{id}_annotation.nii.gz')
+
+    print('done')
