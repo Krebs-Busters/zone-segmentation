@@ -84,7 +84,7 @@ def get_roi(t2w_img, sag_img, input_shape):
 if __name__ == "__main__":
 
     def disp_result(
-        data: Dict[str, jnp.ndarray], out: jnp.ndarray, slice: int = 11
+        data: jnp.ndarray, out: jnp.ndarray, slice: int = 11
     ):
         """Plot the original image, network output and annotation."""
         plt.title("scan")
