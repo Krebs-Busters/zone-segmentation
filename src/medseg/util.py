@@ -128,7 +128,7 @@ def compute_roi(images: Tuple[Image, Image, Image]):
             See https://docs.python.org/3/library/functions.html#slice
             for more information regarding python slices.
     """
-    assert len(images) == 3
+    # assert len(images) == 3
 
     # get the displacement vectors from the origin for every scan.
     origins = [np.asarray(img.GetOrigin()) for img in images]
