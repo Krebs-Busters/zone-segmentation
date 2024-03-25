@@ -1,4 +1,4 @@
-"""Samples the test data, to asses segmentation quality."""
+"""Sampling for Barbara Wichtmanns in-house 'mannheim'-data set."""
 
 import pickle
 import os
@@ -13,7 +13,7 @@ from tqdm import tqdm
 import SimpleITK as sitk  # noqa: N813
 import skimage
 
-from src.medseg.train import UNet3D, normalize
+from scripts.train_prostate_X import UNet3D, normalize
 from src.medseg.util import resample_image, compute_roi
 
 def read_folder(path: str):

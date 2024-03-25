@@ -238,71 +238,10 @@ def compute_roi(images: Tuple[Image, Image, Image]):
         # img_coord_tra = img_coord_rois[0]
         # sitk getShape and GetArrayFromImage return transposed results.
 
-        plt.imshow(intersections[0][:, :, 10])
+        plt.imshow(intersections[0][:, :, 11])
         plt.show()
 
     return intersections, box_indices
-
-
-def sigmoid_focal_loss(
-    logits: jnp.ndarray,
-    labels: jnp.ndarray,
-    alpha: float = -1,
-    gamma: float = 2,
-) -> jnp.ndarray:
-    """Compute a sigmoid focal loss.
-
-    Implementation of the focal loss as used https://arxiv.org/abs/1708.02002.
-    This loss often appears in the segmentation context.
-    Use this loss function if classes are not mutually exclusive.
-    See `sigmoid_binary_cross_entropy` for more information.
-
-    Args:
-        logits: A float array of arbitrary shape.
-                The predictions for each example.
-        labels: A float array, its shape must be identical to
-                that of logits. It containes the binary
-                 classification label for each element in logits
-                (0 for the out of class and 1 for in class).
-                This array is often one-hot encoded.
-        alpha: (optional) Weighting factor in range (0,1) to balance
-                positive vs negative examples. Default = -1 (no weighting).
-        gamma: Exponent of the modulating factor (1 - p_t) to
-               balance easy vs hard examples.
-
-    Returns:
-        A loss value array with a shape identical to the logits and target
-        arrays.
-    """
-    chex.assert_type([logits], float)
-    labels = labels.astype(logits.dtype)
-
-    # see also the original implementation at:
-    # https://github.com/facebookresearch/fvcore/blob/main/fvcore/nn/focal_loss.py
-    p = jax.nn.sigmoid(logits)
-    ce_loss = optax.sigmoid_binary_cross_entropy(logits, labels)
-    p_t = p * labels + (1 - p) * (1 - labels)
-    loss = ce_loss * ((1 - p_t) ** gamma)
-    if alpha >= 0:
-        alpha_t = alpha * labels + (1 - alpha) * (1 - labels)
-        loss = alpha_t * loss
-    return loss
-
-
-def softmax_focal_loss(
-    logits: jnp.ndarray,
-    labels: jnp.ndarray,
-    alpha: jnp.ndarray,
-    gamma: float = 2,
-) -> jnp.ndarray:
-    """Compute a softmax focal loss."""
-    chex.assert_type([logits], float)
-    # see also the original sigmoid implementation at:
-    # https://github.com/facebookresearch/fvcore/blob/main/fvcore/nn/focal_loss.py
-    chex.assert_type([logits], float)
-    focus = jnp.power(-jax.nn.softmax(logits, axis=-1) + 1.0, gamma)
-    loss = -labels * alpha * focus * jax.nn.log_softmax(logits, axis=-1)
-    return jnp.sum(loss, axis=-1)
 
 
 # def tversky(y_true, y_pred, alpha=.3, beta=.7):

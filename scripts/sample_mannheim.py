@@ -1,4 +1,4 @@
-"""Samples the test data, to asses segmentation quality."""
+"""Training script for Barbara Wichtmanns in-house 'mannheim'-data set."""
 
 import pickle
 import os
@@ -12,7 +12,7 @@ import skimage
 from tqdm import tqdm
 
 
-from src.medseg.train import UNet3D, normalize
+from scripts.train_prostate_X import UNet3D, normalize
 from src.medseg.util import resample_image, compute_roi
 
 def read_folder(path: str):
@@ -93,7 +93,8 @@ if __name__ == "__main__":
     input_shape = [128, 128, 21]
 
     part = 2
-    path = f'/home/wolter/uni/cancer/Skyra_Mannheim/Part{part}/Part{part}'
+    # path = f'/home/wolter/uni/cancer/Skyra_Mannheim/Part{part}/Part{part}/'
+    path = f'/home/wolter/uni/cancer/Skyra_Mannheim/Part{part}/Part{part}/42498984/'
     mannheim_scans = load_mannhein(path)
     mannheim_rois = {}
     # extract rois

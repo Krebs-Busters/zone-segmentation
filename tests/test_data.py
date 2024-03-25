@@ -4,16 +4,15 @@ import sys
 
 import pytest
 import SimpleITK as sitk  # noqa: N813
-from jax.config import config
+import jax
 
-config.update("jax_platform_name", "cpu")
+jax.config.update("jax_platform_name", "cpu")
 sys.path.insert(0, "./src/")
 
 from src.medseg.data_loader import Loader
 from src.medseg.util import compute_roi, resample_image
 
 
-@pytest.mark.offline
 def test_data() -> None:
     """See it the function really returns true."""
     loader = Loader()
@@ -30,7 +29,6 @@ def test_data() -> None:
     assert all(test_raw_complete)
 
 
-@pytest.mark.offline
 def test_batch_assembly() -> None:
     """Ensure scans and annotations have the same size."""
     loader = Loader()
@@ -41,7 +39,6 @@ def test_batch_assembly() -> None:
     assert batch["images"].shape == batch["annotation"].shape
 
 
-@pytest.mark.offline
 def test_roi() -> None:
     """Ensure the region of interest computation works as intendet."""
     loader = Loader()

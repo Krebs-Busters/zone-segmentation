@@ -1,3 +1,4 @@
+"""Finetuning for Barbara Wichtmanns in-house 'bonn'-data set."""
 
 import pickle
 import os
@@ -8,8 +9,6 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 from clu import metric_writers
-import matplotlib.pyplot as plt
-from src.medseg.data_loader import Loader
 from flax import linen as nn
 from tqdm import tqdm
 import SimpleITK as sitk  # noqa: N813
@@ -19,7 +18,7 @@ import pickle
 from flax.core.frozen_dict import FrozenDict
 
 from src.medseg.util import resample_image, compute_roi
-from src.medseg.train import UNet3D, save_network, normalize
+from scripts.train_prostate_X import UNet3D, save_network, normalize
 from scripts.sample_bonn import store_img_in_dict
 from src.medseg.util import softmax_focal_loss
 

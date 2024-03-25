@@ -6,13 +6,13 @@ from typing import Dict
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import optax
-from data_loader import Loader
+from src.medseg.data_loader import Loader
 from flax import linen as nn
-from train import UNet3D, normalize
+from src.medseg.networks import UNet3D, normalize
 
 if __name__ == "__main__":
-    mean = jnp.array([206.12558])
-    std = jnp.array([164.74423])
+    mean = jnp.array([248.29199])
+    std = jnp.array([159.64618])
     input_shape = [128, 128, 21]
     val_keys = ["ProstateX-0004", "ProstateX-0007"]
     data_set = Loader(input_shape=input_shape, val_keys=val_keys)

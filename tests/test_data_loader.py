@@ -18,29 +18,19 @@ def test_loader(batch_size: int):
     assert list(batch["annotation"].shape) == [batch_size] + list(loader.input_shape)
 
 
-def test_sick_count():
-    """Ensure all of our sick patients are present."""
-    loader = Loader()
-
-    # look for people with cancer.
-    interesting_list = []
-    for key in loader.patient_keys:
-        path = loader.annotation_dict[key]
-        niigz, _ = medpy.io.load(path)
-        max = np.max(niigz)
-
-        if max >= 0.1:
-            interesting_list.append((key, niigz))
-    print(len(interesting_list))
-    assert len(interesting_list) == 47
-
-
 def test_annotation():
     """This test takes a look at the annotations."""
     loader = Loader()
     # record = loader.get_record('10257_1000261')
-    record = loader.get_record("10085_1000085")
+    record = loader.get_record("ProstateX-0044")
     interesting_annotation = record["annotation"]
-    interesting_annotation_hot = jax.nn.one_hot(interesting_annotation, 2)
-    assert np.allclose(interesting_annotation_hot[..., 1], interesting_annotation)
-    assert np.allclose(interesting_annotation_hot[..., 0], 1 - interesting_annotation)
+    assert np.allclose(np.max(interesting_annotation), 4.)
+
+
+def test_stats():
+    loader = Loader()
+    data_stack = np.concatenate([b["images"] for b in loader.get_epoch(2)], 0)
+    mean = np.mean(data_stack)
+    std = np.std(data_stack)
+    assert np.allclose(mean, 248.29199)
+    assert np.allclose(std, 159.64618)

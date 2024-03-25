@@ -25,7 +25,7 @@ class Loader(object):
         input_shape: Tuple[int, int, int] = (256, 256, 32),
         val_keys: List[str] = empty_list,
     ):
-        """Generate a picai-data loader.
+        """Generate a prostateX-data loader.
 
         Args:
             data_path (str): Where to find the Picai data set. Defaults to './data'.
