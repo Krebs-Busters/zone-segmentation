@@ -158,7 +158,8 @@ def train(args):
                              {"validation_ce_loss": val_loss,
                               "validation_iou": val_iou,
                               "val_dice": val_dice,
-                              "val_mad": val_mean_dist})
+                              "val_mad": val_mean_dist,
+                              "epochs": e})
         for i in range(len(val_keys)):
             writer.write_images(
                 iterations_counter,
