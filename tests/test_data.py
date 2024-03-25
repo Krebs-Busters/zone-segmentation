@@ -2,9 +2,9 @@
 
 import sys
 
+import jax
 import pytest
 import SimpleITK as sitk  # noqa: N813
-import jax
 
 jax.config.update("jax_platform_name", "cpu")
 sys.path.insert(0, "./src/")

@@ -24,7 +24,7 @@ def test_annotation():
     # record = loader.get_record('10257_1000261')
     record = loader.get_record("ProstateX-0044")
     interesting_annotation = record["annotation"]
-    assert np.allclose(np.max(interesting_annotation), 4.)
+    assert np.allclose(np.max(interesting_annotation), 4.0)
 
 
 def test_stats():
