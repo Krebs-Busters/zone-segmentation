@@ -49,6 +49,12 @@ def _parse_args():
         help="learning rate for optimizer (default: 1e-3)",
     )
     parser.add_argument(
+        "--gamma",
+        type=float,
+        default=1.5,
+        help="learning rate for optimizer (default: 1e-3)",
+    )
+    parser.add_argument(
         "--epochs", type=int, default=500, help="number of epochs (default: 500)"
     )
     parser.add_argument(
@@ -61,6 +67,7 @@ def train(args):
     """Train the Unet."""
     # Choose two scans for validation.
     val_keys = ["ProstateX-0004", "ProstateX-0007"]
+    gamma = args.gamma
 
     input_shape = [128, 128, 21]  # [168, 168, 32]
     data_set = Loader(input_shape=input_shape, val_keys=val_keys)
@@ -70,9 +77,11 @@ def train(args):
     elif args.cost == 'sce':
         cost = partial(optax.sigmoid_binary_cross_entropy)
     elif args.cost == 'sigfocal':
-        cost = partial(sigmoid_focal_loss, gamma = 1.25)
+        cost = partial(sigmoid_focal_loss, gamma = gamma)
+    # elif args.cost == 'dice':
+    #     cost = partial(dice_coef_loss)
     else:
-        cost = partial(softmax_focal_loss, gamma=1.25)
+        cost = partial(softmax_focal_loss, gamma=gamma)
     batch_size = 2
     # opt = optax.sgd(learning_rate=0.001, momentum=0.99)
     opt = optax.adam(learning_rate=0.001)
@@ -83,8 +92,8 @@ def train(args):
         "./runs/" + f"{str(datetime.now())}_{cost.func.__name__}", asynchronous=False
     )
 
-    np.random.seed(args.seed)
     key = jax.random.PRNGKey(args.seed)
+    rng = np.random.default_rng(args.seed)
     net_state = model.init(key, jnp.ones([batch_size] + input_shape))
     opt_state = opt.init(net_state)
 
@@ -124,7 +133,7 @@ def train(args):
 
     bar = tqdm(range(epochs))
     for e in bar:
-        np.random.shuffle(epoch_batches)
+        rng.shuffle(epoch_batches)
         # epoch_batches_pre = flax.jax_utils.prefetch_to_device(
         #     iter(epoch_batches), 2, [jax.devices()[0]]
         # )
@@ -159,7 +168,8 @@ def train(args):
                               "validation_iou": val_iou,
                               "val_dice": val_dice,
                               "val_mad": val_mean_dist,
-                              "epochs": e})
+                              "epochs": e,
+                              "gamma": gamma})
         for i in range(len(val_keys)):
             writer.write_images(
                 iterations_counter,

@@ -1,5 +1,6 @@
 import pickle
 from typing import Optional
+from datetime import datetime
 
 import chex
 import jax
@@ -75,6 +76,15 @@ def sigmoid_focal_loss(
 
     loss = jax.lax.cond(alpha >= 0, weighted, not_weighted, loss)
     return loss
+
+
+# def dice_coef_loss(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
+#         smooth = 1.
+#         y_true_f = y_true.flatten()
+#         y_pred_f = y_pred.flatten()
+#         intersection = jnp.sum(y_true_f * y_pred_f)
+#         return (-1.) * ((2. * intersection + smooth) / (jnp.sum(y_true_f) + jnp.sum(y_pred_f) + smooth))
+
 
 
 @jax.jit
