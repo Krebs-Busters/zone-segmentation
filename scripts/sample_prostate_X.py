@@ -1,5 +1,6 @@
 """Samples the test data, to asses segmentation quality."""
 import pickle
+import argparse
 
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
@@ -9,7 +10,20 @@ from flax import linen as nn
 from src.medseg.networks import UNet3D, normalize, dice_similarity_coef
 from src.medseg.util import disp_result
 
+
+def _parse_args():
+    """Parse cmd line args for training an image classifier."""
+    parser = argparse.ArgumentParser(description="Train an image classifier")
+    parser.add_argument(
+        "path_to_weights",
+        type=str,
+        help="where to look for pickled network weights.",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
+    args = _parse_args()
     mean = jnp.array([248.29199])
     std = jnp.array([159.64618])
     input_shape = [128, 128, 21]
@@ -18,7 +32,7 @@ if __name__ == "__main__":
     model = UNet3D()
 
     val_data = data_set.get_val(True)
-    with open("./weights/unet_epoch_softmax_focal_loss_499.pkl", "rb") as f:
+    with open(args.path_to_weights, "rb") as f:
         net_state = pickle.load(f)
 
     input_val = normalize(val_data["images"], mean=mean, std=std)
@@ -44,12 +58,16 @@ if __name__ == "__main__":
     print(f"Overall - Test DICE-Score: {test_dice:2.2f}")
     
     pz_sections_annos = (test_data["annotation"] == 1).astype(jnp.float32)
-    tz_sections_annos = (test_data["annotation"] == 2).astype(jnp.float32)
     pz_pred = (y_pred == 1).astype(jnp.float32)
-    tz_pred = (y_pred == 2).astype(jnp.float32)
-
     pz_dice = dice_similarity_coef(pz_sections_annos, pz_pred)
+    del pz_sections_annos
+    del pz_pred
+
+    tz_sections_annos = (test_data["annotation"] == 2).astype(jnp.float32)
+    tz_pred = (y_pred == 2).astype(jnp.float32)
     tz_dice = dice_similarity_coef(tz_sections_annos, tz_pred)
+    del tz_sections_annos
+    del tz_pred
 
     print(f"PZ-Dice: {pz_dice}")
     print(f"TZ-Dice: {tz_dice}")

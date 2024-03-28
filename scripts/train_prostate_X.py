@@ -64,13 +64,35 @@ def _parse_args():
     return parser.parse_args()
 
 
+@jax.jit
+def _augment(img_x, anno_y, key):
+    if jax.random.uniform(key) > 0.5:
+        # left - right flip
+        img_x = jnp.flip(img_x, 1)
+        anno_y = jnp.flip(anno_y, 1)
+    key = jax.random.split(key)
+    
+    if jax.random.uniform(key) > 0.5:
+        # up down - right flip
+        img_x = jnp.flip(img_x, 2)
+        anno_y = jnp.flip(anno_y, 2)
+
+    if jax.random.uniform(key) > 0.25:
+        # up front - back flip
+        img_x = jnp.flip(img_x, 3)
+        anno_y = jnp.flip(anno_y, 3)
+
+    return img_x, anno_y, key
+
+
+
 def train(args):
     """Train the Unet."""
-    # Choose two scans for validation.
-    val_keys = ["ProstateX-0004", "ProstateX-0007"]
+    # Choose scans for validation.
+    val_keys = ["ProstateX-0004"] # "ProstateX-0007"
     gamma = args.gamma
 
-    input_shape = [128, 128, 21]  # [168, 168, 32]
+    input_shape = [168, 168, 32]  # [168, 168, 32], 128, 128, 21
     data_set = Loader(input_shape=input_shape, val_keys=val_keys)
     epochs = args.epochs
     if args.cost == 'ce':
@@ -84,8 +106,8 @@ def train(args):
     else:
         cost = partial(softmax_focal_loss, gamma=gamma)
     batch_size = 2
-    # opt = optax.sgd(learning_rate=0.001, momentum=0.99)
-    opt = optax.adam(learning_rate=0.001)
+    # opt = optax.sgd(learning_rate=args.learning_rate, momentum=0.99)
+    opt = optax.adam(learning_rate=args.learning_rate)
     load_new = True
 
     model = UNet3D()
@@ -94,7 +116,7 @@ def train(args):
         "./runs/" + experiment_identifier, asynchronous=False
     )
 
-    key = jax.random.PRNGKey(args.seed)
+    key = jax.random.key(args.seed)
     rng = np.random.default_rng(args.seed)
     net_state = model.init(key, jnp.ones([batch_size] + input_shape))
     opt_state = opt.init(net_state)
@@ -129,7 +151,7 @@ def train(args):
     val_data = data_set.get_val()
     mean = jnp.array([248.29199])
     std = jnp.array([159.64618])
-    val_loss_list = []
+    # val_loss_list = []
     # train_loss_list = []
     val_loss = 0
 
@@ -140,6 +162,8 @@ def train(args):
         for data_batch in iter(epoch_batches):
             input_x = data_batch["images"]
             labels_y = data_batch["annotation"]
+            key = jax.random.split(key)
+            input_x, labels_y, key = _augment(input_x, labels_y, key)
             input_x = normalize(input_x, mean=mean, std=std)
             cel, grads = loss_grad_fn(net_state, input_x, labels_y)
             updates, opt_state = opt.update(grads, opt_state, net_state)
@@ -198,9 +222,6 @@ def train(args):
             )
         if e % 20 == 0:
             save_network(net_state, e, experiment_identifier)
-
-    #tll = np.stack(train_loss_list, -1)
-    #vll = np.stack(val_loss_list, -1)
 
     if not os.path.exists("./weights/"):
         os.makedirs("./weights/")
