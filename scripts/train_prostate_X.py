@@ -29,7 +29,8 @@ from src.medseg.networks import (
     softmax_focal_loss,
     sigmoid_focal_loss,
     UNet3D,
-    save_network
+    save_network,
+    dice_similarity_coef
     )
 
 
@@ -88,8 +89,9 @@ def train(args):
     load_new = True
 
     model = UNet3D()
+    experiment_identifier = f"{str(datetime.now())}_{cost.func.__name__}_g_{gamma}"
     writer = metric_writers.create_default_writer(
-        "./runs/" + f"{str(datetime.now())}_{cost.func.__name__}", asynchronous=False
+        "./runs/" + experiment_identifier, asynchronous=False
     )
 
     key = jax.random.PRNGKey(args.seed)
@@ -128,15 +130,13 @@ def train(args):
     mean = jnp.array([248.29199])
     std = jnp.array([159.64618])
     val_loss_list = []
-    train_loss_list = []
+    # train_loss_list = []
     val_loss = 0
 
     bar = tqdm(range(epochs))
     for e in bar:
         rng.shuffle(epoch_batches)
-        # epoch_batches_pre = flax.jax_utils.prefetch_to_device(
-        #     iter(epoch_batches), 2, [jax.devices()[0]]
-        # )
+
         for data_batch in iter(epoch_batches):
             input_x = data_batch["images"]
             labels_y = data_batch["annotation"]
@@ -146,7 +146,7 @@ def train(args):
             net_state = optax.apply_updates(net_state, updates)
             iterations_counter += 1
             bar.set_description(f"epoch: {e}, loss: {cel:2.6f}, val-loss: {val_loss:2.6f}")
-            train_loss_list.append((iterations_counter, cel))
+            # train_loss_list.append((iterations_counter, cel))
             writer.write_scalars(iterations_counter, {"training_loss": cel})
 
         # epoch ended validate
@@ -159,15 +159,23 @@ def train(args):
         )
         val_iou = sklearn.metrics.jaccard_score(val_data["annotation"].flatten(),
                                                 val_netseg.flatten(), average='weighted')
-        val_dice = scipy.spatial.distance.dice(val_data["annotation"].flatten(),
+        val_dice = dice_similarity_coef(val_data["annotation"].flatten(),
                                                val_netseg.flatten())
+        pz_sections_annos = (val_data["annotation"] == 1).astype(jnp.float32)
+        tz_sections_annos = (val_data["annotation"] == 2).astype(jnp.float32)
+        pz_pred = (val_netseg == 1).astype(jnp.float32)
+        tz_pred = (val_netseg == 2).astype(jnp.float32)
+        pz_dice = dice_similarity_coef(pz_sections_annos, pz_pred)
+        tz_dice = dice_similarity_coef(tz_sections_annos, tz_pred)
+
         val_mean_dist = jnp.mean(jnp.abs(val_data["annotation"] - val_netseg))
-        val_loss_list.append((iterations_counter, val_loss))
         writer.write_scalars(iterations_counter, 
                              {"validation_ce_loss": val_loss,
                               "validation_iou": val_iou,
                               "val_dice": val_dice,
-                              "val_mad": val_mean_dist,
+                              "val_dice_pz": pz_dice,
+                              "val_dice_tz": tz_dice, 
+                              "val_dist": val_mean_dist,
                               "epochs": e,
                               "gamma": gamma})
         for i in range(len(val_keys)):
@@ -189,24 +197,16 @@ def train(args):
                 },
             )
         if e % 20 == 0:
-            save_network(net_state, e, )
+            save_network(net_state, e, experiment_identifier)
 
-    tll = np.stack(train_loss_list, -1)
-    vll = np.stack(val_loss_list, -1)
-    #plt.semilogy(tll[0], tll[1])
-    #plt.semilogy(vll[0], vll[1])
-    #plt.show()
-    #
-    #plt.imshow(val_data["annotation"][0, :, :, 12])
-    #plt.show()
-    #plt.imshow(jnp.argmax(val_out[0, :, :, 12], axis=-1))
-    #plt.show()
+    #tll = np.stack(train_loss_list, -1)
+    #vll = np.stack(val_loss_list, -1)
 
     if not os.path.exists("./weights/"):
         os.makedirs("./weights/")
 
     print("Training done.")
-    save_network(net_state, e, cost.func.__name__)
+    save_network(net_state, e, experiment_identifier)
 
 
 if __name__ == "__main__":

@@ -87,7 +87,7 @@ if __name__ == "__main__":
         mix = ((data + color_labels)/2.).astype(np.uint8)
 
         plt.imshow(mix)
-        plt.savefig(f"./export/net_seg_{id}_{scan}.png")
+        # plt.savefig(f"./export/net_seg_{id}_{scan}.png")
         plt.clf()
 
     input_shape = [128, 128, 21]

@@ -1,14 +1,13 @@
 """Samples the test data, to asses segmentation quality."""
-
 import pickle
-from typing import Dict
 
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import optax
 from src.medseg.data_loader import Loader
 from flax import linen as nn
-from src.medseg.networks import UNet3D, normalize
+from src.medseg.networks import UNet3D, normalize, dice_similarity_coef
+from src.medseg.util import disp_result
 
 if __name__ == "__main__":
     mean = jnp.array([248.29199])
@@ -19,7 +18,7 @@ if __name__ == "__main__":
     model = UNet3D()
 
     val_data = data_set.get_val(True)
-    with open("./weights/unet_499.pkl", "rb") as f:
+    with open("./weights/unet_epoch_softmax_focal_loss_499.pkl", "rb") as f:
         net_state = pickle.load(f)
 
     input_val = normalize(val_data["images"], mean=mean, std=std)
@@ -29,22 +28,8 @@ if __name__ == "__main__":
     )
     print(f"Validation loss: {val_loss:2.6f}")
 
-    def disp_result(
-        sample: int, data: Dict[str, jnp.ndarray], out: jnp.ndarray, slice: int = 11
-    ):
-        """Plot the original image, network output and annotation."""
-        plt.title("scan")
-        plt.imshow(data["images"][sample, :, :, slice])
-        plt.show()
-        plt.title("network")
-        plt.imshow(jnp.argmax(out[sample, :, :, slice], axis=-1), vmin=0, vmax=5)
-        plt.show()
-        plt.title("human expert")
-        plt.imshow(data["annotation"][sample, :, :, slice], vmin=0, vmax=5)
-        plt.show()
-
-    disp_result(0, val_data, val_out)
-    disp_result(1, val_data, val_out)
+    disp_result(val_data['images'][0], jnp.expand_dims(jnp.argmax(val_out[0], -1), 0), id=0)
+    disp_result(val_data['images'][1], jnp.expand_dims(jnp.argmax(val_out[1], -1), 0), id=1)
 
     test_data = data_set.get_test_set()
     input_test = normalize(test_data["images"], mean=mean, std=std)
@@ -54,7 +39,24 @@ if __name__ == "__main__":
     )
     print(f"Test loss: {test_loss:2.6f}")
 
-    for i in range(20):
-        disp_result(i, test_data, test_out)
+    y_pred = jnp.argmax(test_out, -1)
+    test_dice = dice_similarity_coef(test_data["annotation"], y_pred)
+    print(f"Overall - Test DICE-Score: {test_dice:2.2f}")
+    
+    pz_sections_annos = (test_data["annotation"] == 1).astype(jnp.float32)
+    tz_sections_annos = (test_data["annotation"] == 2).astype(jnp.float32)
+    pz_pred = (y_pred == 1).astype(jnp.float32)
+    tz_pred = (y_pred == 2).astype(jnp.float32)
 
-    pass
+    pz_dice = dice_similarity_coef(pz_sections_annos, pz_pred)
+    tz_dice = dice_similarity_coef(tz_sections_annos, tz_pred)
+
+    print(f"PZ-Dice: {pz_dice}")
+    print(f"TZ-Dice: {tz_dice}")
+    
+    test_pred = jnp.argmax(test_out, -1)
+
+    for i in range(20):
+         disp_result(test_data['images'][i], jnp.expand_dims(test_pred[i], 0), str(i))
+
+

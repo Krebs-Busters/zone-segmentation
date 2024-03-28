@@ -261,3 +261,27 @@ def compute_roi(images: Tuple[Image, Image, Image]):
 #     pred_probs = jax.nn.softmax(logits)
 #     intersection = jnp.sum(labels * logits)
 #     return ((2. * intersection + 1.) / (jnp.sum(labels) + jnp.sum(pred_probs) + 1.))*(-1.)
+
+
+def disp_result(
+    data: jnp.ndarray, labels: jnp.ndarray, id="", scan="", slice: int = 11
+):
+    """Plot the original image, network output and annotation."""
+    colors = [
+        [0.2422, 0.1504, 0.6603],
+        [0.2647, 0.403, 0.9935],
+        [0.1085, 0.6669, 0.8734],
+        [0.2809, 0.7964, 0.5266],
+        [0.9769, 0.9839, 0.0805],
+    ]
+    plt.title(f"net_seg_{id}_{scan}")
+    data = (data[:, :, slice] / jnp.max(data)) * 255
+    data = jnp.stack([data, data, data], -1)
+    labels = labels[0, :, :, slice]
+    color_labels = [list(map(lambda idx: colors[idx], row)) for row in labels]
+    color_labels = np.stack(color_labels) * 255
+    mix = ((data + color_labels) / 2.0).astype(np.uint8)
+    plt.imshow(mix)
+    plt.show()
+    # plt.savefig(f"./export/net_seg_{id}_{scan}.png")
+    # plt.clf()

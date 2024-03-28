@@ -1,6 +1,6 @@
 import pickle
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
 import chex
 import jax
@@ -78,13 +78,33 @@ def sigmoid_focal_loss(
     return loss
 
 
-# def dice_coef_loss(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
-#         smooth = 1.
-#         y_true_f = y_true.flatten()
-#         y_pred_f = y_pred.flatten()
-#         intersection = jnp.sum(y_true_f * y_pred_f)
-#         return (-1.) * ((2. * intersection + smooth) / (jnp.sum(y_true_f) + jnp.sum(y_pred_f) + smooth))
+def dice_similarity_coef(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
+    """Computes the dice similarity coefficient.
 
+    Args:
+        y_true (jnp.ndarray): Desired output labels.
+        y_pred (jnp.ndarray): Output label estimation.
+
+    Returns:
+        jnp.ndarray: Similarity as float in [0, 1].
+    """
+    y_true_f = y_true.flatten()
+    y_pred_f = y_pred.flatten()
+    intersection = jnp.sum(y_true_f * y_pred_f)
+    return (2.0 * intersection) / (jnp.sum(y_true_f) + jnp.sum(y_pred_f))
+
+
+def dice(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
+    """Compute the dice dissimilariy like scipy does.
+
+    Args:
+        y_true (jnp.ndarray): Desired output labels.
+        y_pred (jnp.ndarray): Output label estimation.
+
+    Returns:
+        jnp.ndarray: Dissimilarity as float in [0, 1].
+    """
+    return 1.0 - dice_similarity_coef(y_true, y_pred)
 
 
 @jax.jit
@@ -115,6 +135,7 @@ def save_network(net_state: FrozenDict, epoch: int, info: str = "") -> None:
     Args:
         net_state (FrozenDict): The current network state.
         epoch (int): The number of epochs the network saw.
+        into (str): A network identifier.
     """
     if info:
         name = f"./weights/unet_epoch_{info}_{epoch}.pkl"

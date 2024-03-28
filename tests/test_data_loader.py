@@ -34,3 +34,11 @@ def test_stats():
     std = np.std(data_stack)
     assert np.allclose(mean, 248.29199)
     assert np.allclose(std, 159.64618)
+
+
+def test_test_data():
+    out_shape = (20, 256, 256, 32)
+    loader = Loader()
+    test_set = loader.get_test_set()
+    assert test_set["annotation"].shape == out_shape
+    assert test_set["images"].shape == out_shape
