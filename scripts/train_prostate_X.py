@@ -64,23 +64,25 @@ def _parse_args():
     return parser.parse_args()
 
 
-@jax.jit
+# @jax.jit
 def _augment(img_x, anno_y, key):
-    if jax.random.uniform(key) > 0.5:
+    if jax.random.uniform(key[0]) > 0.5:
         # left - right flip
         img_x = jnp.flip(img_x, 1)
         anno_y = jnp.flip(anno_y, 1)
-    key = jax.random.split(key)
+    key = jax.random.split(key[0], 1)
     
-    if jax.random.uniform(key) > 0.5:
+    if jax.random.uniform(key[0]) > 0.5:
         # up down - right flip
         img_x = jnp.flip(img_x, 2)
         anno_y = jnp.flip(anno_y, 2)
+    key = jax.random.split(key[0], 1)
 
-    if jax.random.uniform(key) > 0.25:
+    if jax.random.uniform(key[0]) > 0.25:
         # up front - back flip
         img_x = jnp.flip(img_x, 3)
         anno_y = jnp.flip(anno_y, 3)
+    key = jax.random.split(key[0], 1)
 
     return img_x, anno_y, key
 
@@ -92,7 +94,7 @@ def train(args):
     val_keys = ["ProstateX-0004"] # "ProstateX-0007"
     gamma = args.gamma
 
-    input_shape = [168, 168, 32]  # [168, 168, 32], 128, 128, 21
+    input_shape = [168, 168, 32]  # [168, 168, 32], [128, 128, 21]
     data_set = Loader(input_shape=input_shape, val_keys=val_keys)
     epochs = args.epochs
     if args.cost == 'ce':
@@ -154,6 +156,8 @@ def train(args):
     # val_loss_list = []
     # train_loss_list = []
     val_loss = 0
+    # create random key and subkey
+    key = jax.random.split(key, 1)
 
     bar = tqdm(range(epochs))
     for e in bar:
@@ -162,7 +166,7 @@ def train(args):
         for data_batch in iter(epoch_batches):
             input_x = data_batch["images"]
             labels_y = data_batch["annotation"]
-            key = jax.random.split(key)
+            key = jax.random.split(key[0], 1)
             input_x, labels_y, key = _augment(input_x, labels_y, key)
             input_x = normalize(input_x, mean=mean, std=std)
             cel, grads = loss_grad_fn(net_state, input_x, labels_y)
