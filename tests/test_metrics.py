@@ -1,6 +1,4 @@
-import jax
 import jax.numpy as jnp
-import pytest
 from scipy.spatial.distance import dice
 
 from src.medseg.networks import dice as mydice

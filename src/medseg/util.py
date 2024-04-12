@@ -2,13 +2,10 @@
 
 from typing import List, Tuple
 
-import chex
-import jax
 import jax.numpy as jnp
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
-import optax
 import SimpleITK as sitk  # noqa: N813
 from SimpleITK.SimpleITK import Image
 
@@ -264,7 +261,7 @@ def compute_roi(images: Tuple[Image, Image, Image]):
 
 
 def disp_result(
-    data: jnp.ndarray, labels: jnp.ndarray, id="", scan="", slice: int = 11
+    data: jnp.ndarray, labels: jnp.ndarray, id="", scan="", slice: int = 16
 ):
     """Plot the original image, network output and annotation."""
     colors = [

@@ -17,7 +17,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import optax
 import sklearn.metrics
-import scipy.spatial.distance
 from clu import metric_writers
 from flax import linen as nn
 from flax.core.frozen_dict import FrozenDict
@@ -224,7 +223,7 @@ def train(args):
                     )
                 },
             )
-        if e % 20 == 0:
+        if e % 100 == 0:
             save_network(net_state, e, experiment_identifier)
 
     if not os.path.exists("./weights/"):

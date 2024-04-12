@@ -10,3 +10,4 @@ pytest
 medpy
 clu
 tensorflow
+tcia-utils

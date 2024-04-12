@@ -21,3 +21,5 @@ A 3D U-Net model is modelled in `train.py` as specified in this [paper](https://
 python src/medseg/sample.py
 ```
 
+### Limitations
+The region interest computation extracts the intersection of the input scans. 

@@ -138,7 +138,7 @@ def save_network(net_state: FrozenDict, epoch: int, info: str = "") -> None:
         into (str): A network identifier.
     """
     if info:
-        name = f"./weights/unet_epoch_{info}_{epoch}.pkl"
+        name = f"./weights/unet_{info}_epoch_{epoch}.pkl"
     else:
         name = f"./weights/unet_epoch_{epoch}.pkl"
 
