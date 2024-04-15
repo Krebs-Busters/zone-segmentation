@@ -39,7 +39,7 @@ Should you use this work in an academic context please cite:
 ```
 @software{wolter2024stability,
   title={On the Stability of Neural Segmentation in Radiology},
-  author={Wolter, Moritz and Wichtmann Barbara},
+  author={Wolter, Moritz and Wichtmann, Barbara},
   url = {https://github.com/Krebs-Busters/zone-segmentation}
   year={2024},
 }
