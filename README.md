@@ -17,9 +17,30 @@ Once the training is done, weights are saved as pickled file in `./weights` path
 A 3D U-Net model is modelled in `train.py` as specified in this [paper](https://arxiv.org/pdf/1505.04597.pdf).
 
 ### To test the model run
-```bash
+``` bash
 python src/medseg/sample.py
 ```
 
-### Limitations
-The region interest computation extracts the intersection of the input scans. 
+### Citation
+Should you use this work in an academic context please cite:
+
+
+``` 
+@inproceedings{meyer2019towards,
+  title={Towards patient-individual PI-Rads v2 sector map: CNN for automatic segmentation of prostatic zones from T2-weighted MRI},
+  author={Meyer, Anneke and Rakr, Marko and Schindele, Daniel and Blaschke, Simon and Schostak, Martin and Fedorov, Andriy and Hansen, Christian},
+  booktitle={2019 IEEE 16th International Symposium on Biomedical Imaging (ISBI 2019)},
+  pages={696--700},
+  year={2019},
+  organization={IEEE}
+}
+```
+
+```
+@software{wolter2024stability,
+  title={On the Stability of Neural Segmentation in Radiology},
+  author={Wolter, Moritz and Wichtmann Barbara},
+  url = {https://github.com/Krebs-Busters/zone-segmentation}
+  year={2024},
+}
+```
