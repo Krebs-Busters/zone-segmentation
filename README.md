@@ -3,20 +3,31 @@ Cancer-segmentation
 
 ### Getting started
 Start by navigating into the data folder and run `python download.py` to set up the training data.
+To clone via ssh configure your local system for ssh-access as described in the [github-docs](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account).
 
-### Requirements
-All the libraries required to run this project are specified in requirements.txt
+### Using the model
+To clone this repository, type:
+``` bash
+git clone git@github.com:Krebs-Busters/zone-segmentation.git
+```
+If outgoing SSH is disabled in your network, download the repository using your web browser, using the `download ZIP` button.
+After extracting the zip file set up the Python environment by running:
+``` bash
+pip install -r requirements.txt
+```
+TODO fertigschreiben.
+
+
 
 ### Training & Validation
 For training, run `python train.py`.
 In case of training for the first time, change the variable `load_new` to True.
-With label new, dataset is divided into batches and saved as pickled, saving the precious batching time for future training.
 Once the training is done, weights are saved as pickled file in `./weights` path.'
 
 ### Model
 A 3D U-Net model is modelled in `train.py` as specified in this [paper](https://arxiv.org/pdf/1505.04597.pdf).
 
-### To test the model run
+### To test the model, run
 ``` bash
 python src/medseg/sample.py
 ```
