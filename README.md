@@ -15,22 +15,24 @@ After extracting the zip file set up the Python environment by running:
 ``` bash
 pip install -r requirements.txt
 ```
-TODO fertigschreiben.
-
-
 
 ### Training & Validation
-For training, run `python train.py`.
+For training, run
+``` bash
+PYTHONPATH=. python scripts/train_prostate_X.py
+```
+.
 In case of training for the first time, change the variable `load_new` to True.
-Once the training is done, weights are saved as pickled file in `./weights` path.'
+Once the training is done, weights are saved as a pickled file in `./weights`.
 
 ### Model
-A 3D U-Net model is modelled in `train.py` as specified in this [paper](https://arxiv.org/pdf/1505.04597.pdf).
+A 3D U-Net model is modeled in `src/networks.py` as specified in by [Meyer et al.](https://arxiv.org/pdf/1505.04597.pdf).
 
 ### To test the model, run
 ``` bash
-python src/medseg/sample.py
+PYTHONPATH=. python scripts/sample_prostate_X.py
 ```
+
 
 ### Citation
 Should you use this work in an academic context please cite:

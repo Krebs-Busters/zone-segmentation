@@ -9,6 +9,7 @@ import jax.tree_util
 import numpy as np
 import SimpleITK as sitk  # noqa: N813
 import skimage
+from SimpleITK.SimpleITK import Image
 
 from .util import compute_roi  # , compute_roi2
 from .util import resample_image
@@ -110,14 +111,14 @@ class Loader(object):
         self.key_pointer += 1
         return current_key
 
-    def get_images(self, patient_key: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_images(self, patient_key: str) -> Tuple[Image, Image, Image]:
         """Return the t2w, sag and cor scan tuple for a corresponding key.
 
         Args:
             patient_key (str): The prostateX scan key.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray]: A tuple with with the t2w, sag, cor scans,
+            Tuple[Image, Image, Image]: A tuple with with the t2w, sag, cor scans,
                 in that order.
         """
         t2w = self.image_dict[self.patient_series_dict[patient_key]["t2_tse_tra"]]
@@ -151,10 +152,10 @@ class Loader(object):
         annos = sitk.ReadImage(annos)
 
         # Resample
-        t2w_img = resample_image(t2w_img, [0.5, 0.5, 3.0], sitk.sitkLinear, 0)
-        sag_img = resample_image(sag_img, [0.5, 0.5, 3.0], sitk.sitkLinear, 0)
-        cor_img = resample_image(cor_img, [0.5, 0.5, 3.0], sitk.sitkLinear, 0)
-        annos = resample_image(annos, [0.5, 0.5, 3.0], sitk.sitkLinear, 0)
+        t2w_img = resample_image(t2w_img, (0.5, 0.5, 3.0), sitk.sitkLinear, 0)
+        sag_img = resample_image(sag_img, (0.5, 0.5, 3.0), sitk.sitkLinear, 0)
+        cor_img = resample_image(cor_img, (0.5, 0.5, 3.0), sitk.sitkLinear, 0)
+        annos = resample_image(annos, (0.5, 0.5, 3.0), sitk.sitkLinear, 0)
 
         regions, slices = compute_roi((t2w_img, cor_img, sag_img))
         # anneke = compute_roi2((t2w_img, cor_img, sag_img))

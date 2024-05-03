@@ -9,10 +9,9 @@ import numpy as np
 import SimpleITK as sitk  # noqa: N813
 from SimpleITK.SimpleITK import Image
 
-# from . import zone_segmentation_utils as utils
 
-
-def resample_image(input_image, new_spacing, interpolator, default_value):
+def resample_image(input_image: Image, new_spacing: Tuple[float, float, float],
+                   interpolator: int, default_value: int) -> Image:
     """Resample the input scans.
 
     Adapted from
@@ -276,8 +275,8 @@ def disp_result(
     data = jnp.stack([data, data, data], -1)
     labels = labels[0, :, :, slice]
     color_labels = [list(map(lambda idx: colors[idx], row)) for row in labels]
-    color_labels = np.stack(color_labels) * 255
-    mix = ((data + color_labels) / 2.0).astype(np.uint8)
+    color_labels_stack = np.stack(color_labels) * 255
+    mix = ((data + color_labels_stack) / 2.0).astype(np.uint8)
     plt.imshow(mix)
     plt.show()
     # plt.savefig(f"./export/net_seg_{id}_{scan}.png")
