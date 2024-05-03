@@ -2,10 +2,8 @@ Cancer-segmentation
 -------------------
 
 ### Getting started
-Start by navigating into the data folder and run `python download.py` to set up the training data.
 To clone via ssh configure your local system for ssh-access as described in the [github-docs](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account).
 
-### Using the model
 To clone this repository, type:
 ``` bash
 git clone git@github.com:Krebs-Busters/zone-segmentation.git
@@ -15,6 +13,10 @@ After extracting the zip file set up the Python environment by running:
 ``` bash
 pip install -r requirements.txt
 ```
+
+#### Automatic setup of the Prostate-X data for training and testing.
+Navigate into the data folder and run `python download.py` to set up the Prostate-X data-set.
+
 
 ### Training & Validation
 For training, run
