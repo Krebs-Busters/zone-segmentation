@@ -10,8 +10,12 @@ import SimpleITK as sitk  # noqa: N813
 from SimpleITK.SimpleITK import Image
 
 
-def resample_image(input_image: Image, new_spacing: Tuple[float, float, float],
-                   interpolator: int, default_value: int) -> Image:
+def resample_image(
+    input_image: Image,
+    new_spacing: Tuple[float, float, float],
+    interpolator: int,
+    default_value: int,
+) -> Image:
     """Resample the input scans.
 
     Adapted from
