@@ -1,3 +1,5 @@
+"""Tests for metrics and cost functions go here."""
+
 import jax.numpy as jnp
 from scipy.spatial.distance import dice
 
@@ -5,6 +7,7 @@ from src.medseg.networks import dice as mydice
 
 
 def test_dice():
+    """Compare dice return values to scipy."""
 
     def dice_eval(a1, a2):
         return dice(a1, a2), mydice(jnp.array(a1), jnp.array(a2))

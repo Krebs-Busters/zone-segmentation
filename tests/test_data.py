@@ -1,9 +1,8 @@
-"""Test the python function from src."""
+"""Test the python functions from src."""
 
 import sys
 
 import jax
-import pytest
 import SimpleITK as sitk  # noqa: N813
 
 jax.config.update("jax_platform_name", "cpu")

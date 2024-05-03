@@ -1,5 +1,6 @@
+"""The module sets up our networks and cost functions."""
+
 import pickle
-from datetime import datetime
 from typing import Optional
 
 import chex
@@ -71,15 +72,17 @@ def sigmoid_focal_loss(
     p_t = p * labels + (1 - p) * (1 - labels)
     loss = ce_loss * ((1 - p_t) ** gamma)
 
-    weighted = lambda loss_arg: (alpha * labels + (1 - alpha) * (1 - labels)) * loss_arg
-    not_weighted = lambda loss_arg: loss_arg
+    weighted = (
+        lambda loss_arg: (alpha * labels + (1 - alpha) * (1 - labels)) * loss_arg
+    )  # noqa: E731
+    not_weighted = lambda loss_arg: loss_arg  # noqa: E731
 
     loss = jax.lax.cond(alpha >= 0, weighted, not_weighted, loss)
     return loss
 
 
 def dice_similarity_coef(y_true: jnp.ndarray, y_pred: jnp.ndarray) -> jnp.ndarray:
-    """Computes the dice similarity coefficient.
+    """Compute the dice similarity coefficient.
 
     Args:
         y_true (jnp.ndarray): Desired output labels.
@@ -135,7 +138,7 @@ def save_network(net_state: FrozenDict, epoch: int, info: str = "") -> None:
     Args:
         net_state (FrozenDict): The current network state.
         epoch (int): The number of epochs the network saw.
-        into (str): A network identifier.
+        info (str): A network identifier.
     """
     if info:
         name = f"./weights/unet_{info}_epoch_{epoch}.pkl"

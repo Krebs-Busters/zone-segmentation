@@ -15,6 +15,7 @@ from tqdm import tqdm
 from scripts.train_prostate_X import UNet3D, normalize
 from src.medseg.util import resample_image, compute_roi
 
+
 def read_folder(path: str):
     reader = sitk.ImageSeriesReader()
     # sitk does not understand path objects.
@@ -68,7 +69,7 @@ def get_roi(t2w_img, sag_img, cor_img, input_shape):
 if __name__ == "__main__":
 
     def disp_result(
-        data: jnp.ndarray, labels: jnp.ndarray, id, scan, slice: int = 11
+        data: jnp.ndarray, labels: jnp.ndarray, id, scan, slice: int = 16
     ):
         """Plot the original image, network output and annotation."""
         colors = [[0.2422, 0.1504, 0.6603],
@@ -88,13 +89,14 @@ if __name__ == "__main__":
 
         plt.imshow(mix)
         # plt.savefig(f"./export/net_seg_{id}_{scan}.png")
+        plt.show()
         plt.clf()
 
-    input_shape = [128, 128, 21]
+    input_shape = [168, 168, 32]
 
     part = 2
-    # path = f'/home/wolter/uni/cancer/Skyra_Mannheim/Part{part}/Part{part}/'
-    path = f'/home/wolter/uni/cancer/Skyra_Mannheim/Part{part}/Part{part}/42498984/'
+    path = f'/home/wolter/uni/cancer/Skyra_Mannheim/Part{part}/Part{part}/'
+    # path = f'/home/wolter/uni/cancer/Skyra_Mannheim/Part{part}/Part{part}/42498984/'
     mannheim_scans = load_mannhein(path)
     mannheim_rois = {}
     # extract rois
@@ -104,14 +106,11 @@ if __name__ == "__main__":
             tras[tra_scan] = get_roi(images[tra_scan], images['sag'], images['cor'], input_shape)
         mannheim_rois[id] = tras
 
-    
-    # mean = jnp.array([206.12558])
-    # std = jnp.array([164.74423])
     mean = jnp.mean(jnp.array([tra for _, tra in tras.items()]))
     std = jnp.std(jnp.array([tra for _, tra in tras.items()]))
 
     model = UNet3D()
-    with open("./weights/unet_499.pkl", "rb") as f:
+    with open("./weights/done/unet_2024-04-11_16:31:55.652071_softmax_focal_loss_g_1.5_499.pkl", "rb") as f:
         net_state = pickle.load(f)
 
     mannheim_net_segs = {}
@@ -127,5 +126,9 @@ if __name__ == "__main__":
         mannheim_net_segs[id] = tras
         jaccard_score_dict[id] = jaccard_score(*[labels.flatten() for labels in tras.values()],
                                                average='weighted')
-        pass
-    print(jaccard_score_dict)
+    print(f'jaccard scores: {jaccard_score_dict}')
+
+    mean_iou = np.mean([value for _, value in jaccard_score_dict.items()])
+
+    print(f'mean IoU: {mean_iou:2.2f}')
+    pass

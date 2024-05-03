@@ -22,7 +22,7 @@ def _parse_args():
         "--path_to_weights",
         type=str,
         help="where to look for pickled network weights.",
-        default="./weights/done/unet_epoch_2024-04-11_16:31:55.652071_softmax_focal_loss_g_1.5_499.pkl"
+        default="./weights/done/unet_2024-04-11_16:31:55.652071_softmax_focal_loss_g_1.5_499.pkl"
     )
     return parser.parse_args()
 

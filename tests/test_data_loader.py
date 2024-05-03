@@ -1,7 +1,5 @@
 """Ensure the data loading works as expected."""
 
-import jax.nn
-import medpy.io
 import numpy as np
 import pytest
 
@@ -28,6 +26,7 @@ def test_annotation():
 
 
 def test_stats():
+    """Ensure the mean and std values we use are correct."""
     loader = Loader()
     data_stack = np.concatenate([b["images"] for b in loader.get_epoch(2)], 0)
     mean = np.mean(data_stack)
@@ -37,6 +36,7 @@ def test_stats():
 
 
 def test_test_data():
+    """Ensure the test data size is correct."""
     out_shape = (20, 256, 256, 32)
     loader = Loader()
     test_set = loader.get_test_set()
