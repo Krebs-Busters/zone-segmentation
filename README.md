@@ -28,7 +28,7 @@ In case of training for the first time, change the variable `load_new` to True.
 Once the training is done, weights are saved as a pickled file in `./weights`.
 
 ### Model
-`src/networks.py` implements a 3D U-Net flax-model as specified by [Meyer et al.](http://www.cas.ovgu.de/pub/2019_Meyer_ISBI_Zone_Segmentation.pdf).
+`src/networks.py` implements a 3D U-Net flax-model as specified by [Meyer et al.](http://www.cas.ovgu.de/pub/2019_Meyer_ISBI_Zone_Segmentation.pdf) as well as our own implementation of a `softmax_focal_loss`.
 
 ### To test the model, run
 ``` bash
