@@ -13,19 +13,24 @@ from src.medseg.util import compute_roi, resample_image
 
 
 def test_data() -> None:
-    """See it the function really returns true."""
+    """See if the function really returns true."""
     loader = Loader()
+    
+    # check if patient_keys is empty
+    assert loader.patient_keys, "No patient data loaded: patient_keys is empty"
+    
     test_anno_raw = []
     for key in loader.patient_keys:
         test_anno_raw.append(key in loader.patient_series_dict.keys())
-    assert all(test_anno_raw)
+    assert all(test_anno_raw), "Some patient keys are not in patient_series_dict"
+    
     test_raw_complete = []
     interesting_scans = ["t2_tse_tra", "t2_tse_sag", "t2_tse_cor"]
     for key in loader.patient_keys:
         for scan in interesting_scans:
             entry = loader.patient_series_dict[key]
             test_raw_complete.append(scan in entry.keys())
-    assert all(test_raw_complete)
+    assert all(test_raw_complete), "Some required scans are missing for one or more patients"
 
 
 def test_batch_assembly() -> None:
